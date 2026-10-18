@@ -47,7 +47,7 @@ python reproduce.py --mode full     # 20 matches, results above
 python reproduce.py --mode fast     # 4 matches, smoke test
 pytest
 ```
-Data are downloaded from SkillCorner's open repository (not versioned). Body Pose is optional (`pip install -e .[pose]`).
+Data are downloaded from SkillCorner's open repository (not versioned). Body Pose is included by default: the first run downloads the pose data (about 600 MB per match, cached).
 
 ## Limits
 - Association, not causation: we do not know whether the high line is chosen or forced.

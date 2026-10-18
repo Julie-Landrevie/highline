@@ -9,7 +9,7 @@ description = "Ligne haute : cout, gain et fiabilite des positions (tracking de 
 readme = "README.md"
 license = { file = "LICENSE.md" }
 requires-python = ">=3.9"
-dependencies = ["numpy>=1.23", "pandas>=1.5", "scipy>=1.9", "matplotlib>=3.6", "requests>=2.28"]
+dependencies = ["numpy>=1.23", "pandas>=1.5", "scipy>=1.9", "matplotlib>=3.6", "requests>=2.28", "huggingface_hub"]
 
 [project.optional-dependencies]
 pose = ["huggingface_hub>=0.20"]

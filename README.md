@@ -47,7 +47,7 @@ python reproduce.py --mode full     # 20 matchs, résultats ci-dessus
 python reproduce.py --mode fast     # 4 matchs, test de bon fonctionnement
 pytest
 ```
-Les données sont téléchargées depuis le dépôt ouvert SkillCorner (non versionnées). Body Pose est facultatif (`pip install -e .[pose]`).
+Les données sont téléchargées depuis le dépôt ouvert SkillCorner (non versionnées). Body Pose est inclus par défaut : le premier lancement télécharge les données de pose (environ 600 Mo par match, mises en cache).
 
 ## Limites
 - Association, pas causalité : nous ne savons pas si la ligne haute est choisie ou subie.
