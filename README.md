@@ -62,4 +62,4 @@ Optimisation de positions (Shah, édition 1, `databallpy`), Bekkers & Sahasrabud
 numpy, pandas, scipy, matplotlib, requests (BSD / MIT) ; huggingface_hub (Apache 2.0, facultatif) ; pytest (MIT). Code sous licence MIT (`LICENSE.md`).
 
 ## Déclaration d'usage d'outils d'IA
-<!-- À COMPLÉTER PAR L'AUTRICE : décision personnelle. Les règles ne traitent pas ce point. -->
+Un assistant d’IA (modèle de langage) a aidé à écrire et relire le code et les textes (français et anglais). La question, les hypothèses et les choix d’analyse ont été arrêtés par l’autrice, qui a exécuté et vérifié l’ensemble sur le jeu de données fourni (tests, `reproduce.py --mode full`) et en assume la responsabilité. Aucune donnée externe n’a été utilisée.

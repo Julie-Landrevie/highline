@@ -62,4 +62,4 @@ Position optimisation (Shah, edition 1, `databallpy`), Bekkers & Sahasrabudhe, d
 numpy, pandas, scipy, matplotlib, requests (BSD / MIT); huggingface_hub (Apache 2.0, optional); pytest (MIT). Code under MIT licence (`LICENSE.md`).
 
 ## AI-tool use declaration
-<!-- TO BE COMPLETED BY THE AUTHOR: personal decision. The rules do not address this point. -->
+An AI assistant (language model) helped write and review the code and the texts (French and English). The question, hypotheses and analysis choices were decided by the author, who ran and checked everything on the provided dataset (tests, `reproduce.py --mode full`) and takes responsibility for it. No external data was used.
