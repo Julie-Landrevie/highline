@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "highline"
+version = "0.1.0"
+description = "Ligne haute : cout, gain et fiabilite des positions (tracking de diffusion SkillCorner, A-League 2024/25)"
+readme = "README.md"
+license = { file = "LICENSE.md" }
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.23", "pandas>=1.5", "scipy>=1.9", "matplotlib>=3.6", "requests>=2.28"]
+
+[project.optional-dependencies]
+pose = ["huggingface_hub>=0.20"]
+dev = ["pytest>=7"]
+
+[tool.setuptools]
+packages = ["highline"]

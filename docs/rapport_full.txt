@@ -1,0 +1,109 @@
+highline : mode full, 20 matchs, 300 tirages bootstrap par match
+==============================================================================
+43388 moments defensifs ; 10 joueurs de champ observes : 14 % ; 4 plus bas observes : 36 % ; incertitude de la ligne : mediane 0.9 m, p90 2.4 m
+
+==============================================================================
+TABLE DE DECISION DE LA LIGNE HAUTE (bloc installe, balle >= 35 m de son but)
+16336 moments ; 20 matchs ; 1 ecart-type de hauteur residuelle = 7.9 m ; tir adverse 15 s : 2.1% ; tir de l'equipe 15 s : 1.7%
+
+Par situation (effet d'un bloc plus haut de 1 ecart-type, points de probabilite [IC95 % bootstrap par match]) ; bilan(w) = gain - w x cout ;
+w* = poids d'un tir concede (par rapport a un tir cree) au-dela duquel garder la ligne basse est preferable (si cout > 0 et gain > 0).
+                         situation      n |                 cout                 gain |            bilan w=1            bilan w=2 |    w* | lecture (w=1 / w=2)
+                          ensemble  16336 | +0.38 [-0.03;+0.75] +1.61 [+1.18;+2.07] | +1.23 [+0.73;+1.79] +0.85 [+0.09;+1.71] |   4.3 | monter PAIE / monter PAIE
+                     minute : 0-30   5973 | +0.64 [-0.04;+1.32] +0.77 [-0.09;+1.66] | +0.13 [-0.86;+1.39] -0.52 [-1.97;+1.12] |   1.2 | pas tranchable / pas tranchable
+                    minute : 30-60   5436 | +0.10 [-0.50;+0.67] +2.11 [+0.81;+3.45] | +2.01 [+0.77;+3.18] +1.91 [+0.51;+3.24] |  21.0 | monter PAIE / monter PAIE
+                      minute : 60+   4927 | +0.35 [-0.21;+1.12] +2.05 [+1.08;+2.90] | +1.70 [+0.40;+2.93] +1.35 [-0.63;+3.10] |   5.9 | monter PAIE / pas tranchable
+                  score : derriere   4362 | +0.19 [-0.57;+0.86] +2.14 [+0.63;+3.44] | +1.96 [+0.51;+3.49] +1.77 [+0.08;+3.85] |  11.6 | monter PAIE / monter PAIE
+                   score : egalite   7156 | +0.32 [-0.23;+0.86] +1.59 [+0.52;+2.89] | +1.27 [+0.22;+2.77] +0.96 [-0.26;+2.78] |   5.0 | monter PAIE / pas tranchable
+                    score : devant   4818 | +0.65 [+0.09;+1.19] +0.70 [-0.23;+1.46] | +0.06 [-1.14;+1.21] -0.59 [-2.20;+1.04] |   1.1 | pas tranchable / pas tranchable
+                     zone : milieu  13335 | +0.53 [+0.06;+0.94] +0.85 [+0.53;+1.20] | +0.33 [-0.29;+1.01] -0.20 [-1.18;+0.89] |   1.6 | pas tranchable / pas tranchable
+                 zone : adversaire   3001 | -0.15 [-0.46;+0.13] +4.66 [+2.70;+6.66] | +4.81 [+2.90;+6.83] +4.96 [+3.06;+7.08] |    -  | monter PAIE / monter PAIE
+                   porteur : libre   8300 | +1.25 [+0.41;+2.34] +0.20 [-0.16;+0.60] | -1.06 [-2.11;-0.14] -2.31 [-4.35;-0.60] |   0.2 | monter COUTE / monter COUTE
+                  porteur : presse   6243 | +0.04 [-0.58;+0.59] +1.92 [+0.97;+2.95] | +1.88 [+0.79;+3.25] +1.84 [+0.37;+3.61] |  48.5 | monter PAIE / monter PAIE
+
+Difference de bilan(w=1) entre strates extremes (IC95 % bootstrap par match) et signe dans les deux moities de matchs :
+   score : derriere moins devant : +1.90 [-0.01;+3.92] ; moities +1.45 / +2.84 -> non etablie
+   minute : 0-30 moins 60+ : -1.58 [-3.29;+0.30] ; moities -0.30 / -2.87 -> non etablie
+   porteur : libre moins presse : -2.93 [-4.51;-1.72] ; moities -4.49 / -1.56 -> ETABLIE
+   zone : milieu moins adversaire : -4.48 [-6.85;-2.28] ; moities -4.75 / -4.35 -> ETABLIE
+
+VERDICT TABLE DE DECISION : GO   (dimensions avec difference etablie : porteur, zone)
+Lecture : le bilan n'est PAS un optimum ; il dit dans quel sens la balance penche dans chaque situation. Association, 20 matchs.
+
+==============================================================================
+N : LE SCORE ET LE MOMENT CHANGENT-ILS LE BILAN DE LA LIGNE HAUTE A SITUATION EGALE ?
+14543 moments, 20 matchs. 1 but d'ecart de score = 1 unite ; 1 ecart-type de minute = 27 min ; 1 ecart-type de ligne = 7.6 m.
+  resultat     variable                     tout  moitie 0  moitie 1
+     net15        f_res   +0.90 [-0.27;+2.08]     +1.99     -0.13
+     net15      x_libre   -1.96 [-3.21;-0.71]     -3.29     -0.69
+     net15        x_adv   +2.89 [+0.58;+5.19]     +3.18     +2.95
+     net15    x_score_c   -0.57 [-1.28;+0.15]     -0.46     -0.51
+     net15      x_f_min   +0.50 [-0.17;+1.17]     -0.06     +0.92
+     opp15        f_res   +0.14 [-0.49;+0.77]     -0.16     +0.36
+     opp15      x_libre   +1.07 [+0.14;+1.99]     +1.70     +0.58
+     opp15        x_adv   -0.36 [-0.83;+0.11]     -0.46     -0.35
+     opp15    x_score_c   +0.14 [-0.03;+0.32]     +0.11     +0.20
+     opp15      x_f_min   -0.14 [-0.51;+0.23]     +0.27     -0.51
+     own15        f_res   +1.04 [+0.22;+1.86]     +1.83     +0.23
+     own15      x_libre   -0.89 [-1.72;-0.06]     -1.59     -0.11
+     own15        x_adv   +2.53 [+0.25;+4.80]     +2.71     +2.60
+     own15    x_score_c   -0.43 [-1.08;+0.23]     -0.35     -0.32
+     own15      x_f_min   +0.36 [-0.09;+0.81]     +0.21     +0.42
+VERDICT INTERACTIONS : NO-GO   (net15 : score -0.57 [-1.28;+0.15] ; minute +0.50 [-0.17;+1.17])
+Lecture : score_c = avance de T (positif = T mene). x_score_c < 0 = bilan moins bon quand T mene ; x_f_min > 0 = meilleur en fin de match. Un NO-GO n'etablit pas l'absence d'effet : 20 matchs.
+
+==============================================================================
+M : UN MODELE DE LA SITUATION PREDIT-IL MIEUX AVEC LA HAUTEUR DE LIGNE ET SES INTERACTIONS ? (hors echantillon, 5 blocs de matchs)
+ cible                 modele     AUC |      dAUC S1-S0 [IC95 %]      dAUC S2-S1 [IC95 %]
+ opp15        situation seule  0.6315 
+ opp15     + hauteur de ligne  0.6294 | -0.0021 [-0.0158;+0.0106]
+ opp15         + interactions  0.6387 |                          +0.0093 [-0.0027;+0.0212]
+ own15        situation seule  0.6856 
+ own15     + hauteur de ligne  0.7004 | +0.0148 [-0.0050;+0.0366]
+ own15         + interactions  0.6971 |                          -0.0032 [-0.0291;+0.0275]
+VERDICT MODELE : NO-GO   (la hauteur de ligne ajoute a la situation : False ; les interactions ajoutent : False)
+Lecture : un gain d'AUC faible est normal pour des evenements rares (2 % de tirs) ; le modele sert a verifier que la structure du bilan n'est pas un artefact d'echantillon.
+
+==============================================================================
+LEVIERS : CONTRE-PRESSER OU SE REPLIER ? (pertes de balle d'une equipe A ; OR par ecart-type)
+2340 pertes ; 1 ecart-type = 1.09 joueur(s) a < 8 m (contre-pressing), 1.91 joueur(s) entre la balle et le but (repli)
+Correlation de rang contre-pressing / repli = -0.54
+Non-recoupement avec les phases fournisseur : 18% de mes pertes 'directes' sont quick_break/direct/transition chez le fournisseur ; 53% des phases fournisseur correspondantes sont 'directes' selon mon critere (n = 233).
+D = ln OR(contre-pressing) - ln OR(repli) sur l'entree dans la surface ; D < 0 : le contre-pressing la reduit plus ; D > 0 : le repli la reduit plus.
+                         situation     n  evt |          OR press.           OR repli |             D [IC95 %]  moit.0  moit.1 |                    lecture | regain 8 s : OR press. / repli
+                          ensemble  2340  171 | 0.73 [0.62;0.85] 0.59 [0.55;0.63] | +0.21 [+0.04;+0.35]   +0.24   +0.20 |      REPLI mieux (tranche) | 1.64 / 0.83
+   zone de recuperation : profonde   781   27 | 0.80 [0.51;1.26] 0.87 [0.51;1.47] | -0.09 [-1.51;+0.43]   -0.22    +nan |                 indistinct | 1.53 / 0.63
+    zone de recuperation : mediane   779   51 | 0.82 [0.59;1.14] 0.63 [0.50;0.79] | +0.26 [-0.07;+0.55]   +0.45   -0.06 |                 indistinct | 1.59 / 0.90
+      zone de recuperation : haute   780   93 | 0.65 [0.54;0.78] 0.52 [0.44;0.62] | +0.22 [+0.00;+0.43]   +0.21   +0.22 |      REPLI mieux (tranche) | 1.76 / 0.89
+             score de A : derriere   670   50 | 0.80 [0.64;1.02] 0.64 [0.55;0.75] | +0.23 [+0.04;+0.38]   +0.22   +0.24 |      REPLI mieux (tranche) | 1.58 / 0.97
+              score de A : egalite   928   66 | 0.70 [0.56;0.88] 0.55 [0.46;0.65] | +0.25 [-0.07;+0.45]   +0.38   +0.18 |                 indistinct | 1.82 / 0.87
+               score de A : devant   742   55 | 0.68 [0.50;0.92] 0.55 [0.43;0.72] | +0.20 [-0.08;+0.49]   +0.22   +0.16 |                 indistinct | 1.49 / 0.66
+                     moment : 0-30   772   54 | 0.66 [0.50;0.89] 0.56 [0.43;0.72] | +0.18 [-0.17;+0.43]   +0.24   +0.03 |                 indistinct | 1.96 / 0.84
+                    moment : 30-60   774   55 | 0.84 [0.62;1.14] 0.58 [0.45;0.73] | +0.38 [+0.05;+0.65]   +0.42   +0.27 |      REPLI mieux (tranche) | 1.40 / 0.76
+                      moment : 60+   794   62 | 0.68 [0.55;0.83] 0.61 [0.51;0.73] | +0.10 [-0.16;+0.35]   +0.09   +0.10 |                 indistinct | 1.65 / 0.89
+hauteur de ligne de A : ligne basse  1170  101 | 0.61 [0.46;0.81] 0.42 [0.33;0.54] | +0.37 [+0.08;+0.64]   +0.37   +0.37 |      REPLI mieux (tranche) | 1.86 / 0.89
+hauteur de ligne de A : ligne haute  1170   70 | 0.81 [0.68;0.96] 0.73 [0.55;0.97] | +0.11 [-0.17;+0.39]   +0.20   +0.01 |                 indistinct | 1.46 / 0.88
+Echange d'UN joueur (de 'derriere la balle' a 'pres de la balle') : OR de l'entree dans la surface = 0.99 [0.85;1.11]  (< 1 : le contre-pressing est le meilleur usage du joueur)
+VERDICT LEVIERS : A VOIR   (inversion entre strates dans : aucune ; levier prefere dans l'ensemble : repli)
+Lecture : D est calcule par ecart-type et l'ecart-type du repli est plus grand que celui du contre-pressing ; la comparaison par joueur (echange ci-dessus) est la plus parlante. Association : on presse quand on le peut.
+
+==============================================================================
+COUT PHYSIQUE : MONTER LA LIGNE COUTE-T-IL DES COURSES RAPIDES DE REPLI ? (4 defenseurs les plus bas de A, 8 s apres une perte, images detectees seulement)
+1299 pertes (>= 30 % d'images detectees) ; part moyenne du temps en course rapide : 8.7 % ; 1 ecart-type de ligne = 13.9 m
+Effet d'un ecart-type de hauteur de ligne de A (points de %) : +7.47 [+5.41;+9.52] ; moities +7.77 / +6.95 ; part detectee >= 0,8 (307 pertes) : +13.36 [+8.73;+18.00]
+VERDICT COUT PHYSIQUE : GO
+Lecture : cout d'EFFORT local mesure sur les 8 s qui suivent la perte ; ni charge de match, ni risque de blessure. Les defenseurs hors champ de la camera sont exclus (selection possible).
+
+==============================================================================
+BODY POSE (2 matchs ; exploratoire)
+1254 moments avec >= 2 joueurs de T et >= 2 adversaires a buste valide ; tirs adverses en 15 s : 46 ; tirs de T : 15
+resultat variable      effet (points par ecart-type)   ecart minimal detectable  match 1925299  match 1996435
+   opp15     turn    +1.41 [-0.13;+2.95]                              2.20          +1.62          +0.73
+   opp15      fwd    +0.56 [-0.53;+1.65]                              1.56          +0.24          +0.95
+   own15     turn    -0.33 [-1.03;+0.37]                              1.00          -0.36          -0.39
+   own15      fwd    -0.82 [-1.82;+0.18]                              1.43          -0.43          -1.02
+VERDICT POSE : exploratoire (ne pas annoncer comme resultat)
+Lecture : l'ecart minimal detectable est la plus petite difference que 2 matchs peuvent mettre en evidence ; s'il est du meme ordre que l'effet de la ligne (1 a 2 points), le test ne peut rien conclure.
+
+==============================================================================
+Fichiers ecrits dans out/ : rapport.txt, figure_1(.en).png, table_1(_en).md, outil_decision.html  (160 s)
