@@ -2,64 +2,61 @@
 
 🇫🇷 Français (ce fichier) · 🇬🇧 [English version](README_en.md) — contenu équivalent.
 
+**Faut-il monter sa ligne quand le porteur est libre ?**
+
 > **La ligne haute est un pari sur le porteur : elle rapporte s'il est pressé, elle coûte s'il est libre.**
 
 Analytics Cup 2.0 (SkillCorner × PySport). Données : SkillCorner A-League 2024/25 uniquement (20 matchs de tracking, événements dynamiques, Body Pose sur 2 matchs). Aucune donnée externe.
 
 ## Question
-Remonter sa ligne défensive donne des occasions (la balle est récupérée plus haut, l'adversaire est pressé) mais expose le dos de la défense. Quand vaut-il la peine de la monter ? Le staff ne voit que des moyennes ; nous donnons, **situation par situation, le gain, le coût et le bilan**, avec l'incertitude.
+Monter sa ligne donne des occasions mais expose le dos de la défense. Quand cela vaut-il la peine ? Le staff ne voit que des moyennes ; nous donnons, **situation par situation, le gain, le coût et le bilan**, avec l'incertitude.
 
 ## Méthode
-1. **Fiabilité des positions.** Un joueur non détecté (`is_detected` faux) a une position extrapolée dont l'erreur croît avec la durée du trou (0,1 m à 0 s, 1,8 m à 5 s, 6 m à 30 s). Nous simulons 100 jeux de positions plausibles par moment pour obtenir l'incertitude de la hauteur de ligne. Les 10 défenseurs de champ ne sont observés que dans 14 % des moments (36 % pour les 4 plus bas) ; nous définissons donc la ligne par les **4 plus bas**.
-2. **Ligne résiduelle.** Tous les 2 s, pour chaque équipe qui défend, ligne = moyenne des 4 défenseurs de champ les plus bas, moins ce qu'elle vaut d'habitude pour la même position du ballon (ajustement quadratique par équipe et par match). Moments retenus : bloc installé (≥ 5 s) et balle à plus de 35 m de son but.
-3. **Gain et coût.** Gain = tirs de l'équipe dans les 15 s ; coût = tirs adverses dans les 15 s ; bilan(w) = gain − w·coût. Effets en points de probabilité par écart-type de ligne, régression avec erreurs groupées par match, **bootstrap par match**, réplication par moitiés de matchs.
-4. **Décision.** Croisement porteur (libre ou pressé, via `overall_pressure_start`) × zone × score × minute, cellules d'au moins 400 moments. Le poids w* = gain/coût indique à partir de quelle aversion au risque la ligne haute cesse de payer.
-5. **Leviers.** Contre-pressing (adversaires à moins de 8 m) contre repli (adversaires devant le ballon) ; coût physique (course > 5,5 m/s dans les 8 s après une perte).
-6. **Verdicts pré-enregistrés** (GO / À VOIR / NO-GO) écrits en tête des scripts avant calcul.
+1. **Fiabilité des positions.** Un joueur non détecté a une position extrapolée dont l'erreur croît avec la durée du trou (0,1 m à 0 s, 1,8 m à 5 s, 6 m à 30 s) ; 100 jeux de positions plausibles donnent l'incertitude de la ligne. Les 10 défenseurs de champ ne sont observés que dans 14 % des moments (36 % pour les 4 plus bas) : la ligne est la moyenne des **4 plus bas**.
+2. **Ligne résiduelle.** Tous les 2 s, par équipe qui défend : ligne moins sa valeur habituelle pour la même position du ballon (ajustement quadratique par équipe et par match). Retenus : bloc installé (≥ 5 s) et balle à plus de 35 m de la **ligne de but**.
+3. **Gain et coût.** Gain = tirs de l'équipe dans les 15 s ; coût = tirs adverses ; bilan(w) = gain − w·coût. Points de probabilité par écart-type de ligne, **bootstrap par match**, réplication par moitiés de matchs.
+4. **Décision.** Porteur (libre ou pressé, `overall_pressure_start`) × zone × score × minute, cellules d'au moins 400 moments. Le poids w* = gain/coût indique à partir de quelle aversion au risque la ligne haute cesse de payer.
+5. **Leviers.** Contre-pressing (adversaires à moins de 8 m) contre repli ; coût physique (course > 5,5 m/s dans les 8 s après une perte).
+6. **Contrôles et verdicts pré-enregistrés (GO / À VOIR / NO-GO).** Tracking contre événements, tirs contre `lead_to_shot`, ligne contre celle du fournisseur, **placebo** (ligne décalée au hasard : 5 % d'intervalles excluant 0 attendus), faux positifs attendus, contrôle de la valeur de possession du fournisseur (`docs/rapport_full.txt`).
 
 ## Résultats
 ![Bilan par situation et leviers](docs/figure_1.png)
-*(version anglaise : `docs/figure_1_en.png`)*
-
-| Résultat | Valeur [IC95 %] | Statut |
+| Résultat (points par écart-type de ligne, IC 95 %) | Valeur | Statut |
 |---|---|---|
-| Ensemble (16 336 moments) : gain, coût, bilan | +1,61 [+1,18 ; +2,07] ; +0,38 [−0,03 ; +0,75] ; +1,23 [+0,73 ; +1,79] | établi |
-| Porteur libre : bilan | −1,06 [−2,11 ; −0,14] | établi |
-| Porteur pressé : bilan | +1,88 [+0,79 ; +3,25] | établi |
-| Balle chez l'adversaire : bilan | +4,81 | établi |
-| Score, minute (même situation) | interactions non significatives | non concluant |
-| Coût physique du repli (points de % par ET) | +7,5 [+5,4 ; +9,5] | établi |
-| Contre-pressing vs repli, un joueur déplacé (OR) | 0,99 [0,85 ; 1,11] | non concluant |
-| Modèle prédictif hors échantillon (AUC) | 0,63 → 0,64 | NO-GO |
+| Porteur libre : bilan | −0,90 [−1,81 ; −0,02] | établi |
+| Porteur pressé : bilan | +1,43 [+0,52 ; +2,62] | établi |
+| Balle chez l'adversaire : bilan | +2,79 [+1,92 ; +3,72] | établi |
+| Score, minute à situation égale | −0,18 [−0,83 ; +0,47] ; +0,65 [−0,12 ; +1,42] | non concluant |
+| Course de repli rapide (points de %) | +7,6 [+5,5 ; +9,8] | établi |
+| Modèle hors échantillon | NO-GO | non concluant |
+| Contrôles | alignement 96 % < 0,5 m ; placebo analytique 5 % ; bootstrap 8–11 % | à lire avec prudence |
+| Body Pose (2 matchs) | 86 tirs ; écart min. détectable ≈ 2 | exploratoire |
 
-**Lecture.** La ligne haute rapporte en moyenne, mais cette moyenne cache deux situations opposées : contre un porteur **pressé** elle paie, contre un porteur **libre** elle coûte. Ce qui tranche est la pression sur le porteur et la zone du ballon, pas le score ni le moment du match : à situation égale, rien n'établit qu'il faille monter plus quand on mène ou en début de match. Le repli est localement coûteux physiquement.
+**Lecture.** La ligne haute rapporte en moyenne, mais cache deux situations opposées : contre un porteur **pressé** elle paie, contre un porteur **libre** elle coûte. Ce qui tranche est la pression sur le porteur, la zone du ballon et, plus faiblement, la minute ; le score n'est pas établi.
 
 ## Perspective exploratoire : Body Pose
-Sur 2 matchs seulement (46 tirs adverses), les orientations de tronc ne permettent aucune conclusion ; l'effet minimal détectable est supérieur à ce qu'on espère. Nous avons **pré-enregistré deux hypothèses** (`docs/HYPOTHESES_BODYPOSE.md`) : plus de défenseurs proches du ballon tournés vers leur but, ou d'attaquants face au jeu, annoncent plus de tirs adverses. Environ 10 matchs suffiraient.
+Sur 2 matchs, aucun intervalle n'exclut 0 et l'écart minimal détectable dépasse les effets : aucune conclusion, quel que soit le seuil (10, 20 ou 30 cm, test post hoc). Pose valide si l'erreur p90 des épaules ≤ 20 cm ; l'orientation du buste n'est pas un regard ; sans pose valide, un joueur est exclu, jamais imputé. **Hypothèses pré-enregistrées** (`docs/HYPOTHESES_BODYPOSE.md`) : plus de défenseurs proches tournés vers leur but, ou d'attaquants face au jeu, annoncent plus de tirs adverses.
 
 ## Outil
-`docs/outil_decision.html` (régénéré dans `out/`) : page autonome **bilingue FR/EN** (bouton en haut à droite) (sans serveur) où l'on choisit porteur, zone, score, minute et le poids w ; elle affiche gain, coût, bilan et intervalle, et marque ce qui n'est pas établi. Elle s'appuie sur le paquet Python `highline`.
+`docs/outil_decision.html` : page autonome **bilingue FR/EN**, sans serveur. On choisit porteur, zone, score, minute et poids w ; elle affiche gain, coût, bilan, intervalle, et ce qui n'est pas établi. Une vue 3D d'un moment réel montre les défenseurs que la caméra ne voit pas (`--render3d` : image, GIF, MP4).
 
 ## Reproduire
 ```
 pip install -e .
-python reproduce.py --mode full     # 20 matchs, résultats ci-dessus
-python reproduce.py --mode fast     # 4 matchs, test de bon fonctionnement
+python reproduce.py --mode full
+python reproduce.py --mode fast
 pytest
 ```
-Les données sont téléchargées depuis le dépôt ouvert SkillCorner (non versionnées). Body Pose est inclus par défaut : le premier lancement télécharge les données de pose (environ 600 Mo par match, mises en cache).
+Données téléchargées depuis le dépôt ouvert SkillCorner (non versionnées ; Body Pose ~600 Mo par match). `highline.api` (`docs/API.md`) lit la table de décision sans les données.
 
 ## Limites
-- Association, pas causalité : nous ne savons pas si la ligne haute est choisie ou subie.
-- Positions extrapolées : la couche de fiabilité mesure l'incertitude, elle ne la supprime pas.
-- Une seule saison, une seule compétition ; écart de score et minute lus sur le dernier événement connu.
-- Différence contre-pressing / repli dépendante de l'échelle (écarts-types différents) : seul l'échange d'un joueur est comparable.
+Association, pas causalité (la ligne est peut-être montée parce que la situation s'y prête) ; **l'effet vient surtout des moments que le fournisseur ne juge pas en défense organisée** (restreint aux 77 % organisés, le bilan n'exclut plus 0) ; intervalles bootstrap un peu optimistes (8 à 11 % d'intervalles placebo excluant 0 pour 5 % attendus) ; positions extrapolées (l'incertitude est mesurée, pas supprimée) ; une saison, une compétition.
 
 ## Travaux connexes
-Optimisation de positions (Shah, édition 1, `databallpy`), Bekkers & Sahasrabudhe, réseaux défensifs (JeremyBetz), Choi 2026, Visual Exploratory Behaviour, VPEP, exPress. Nous nous distinguons de la phase « hors possession » de SkillCorner (accord de 18 % avec notre contre-pressing « direct ») en chiffrant gain, coût et incertitude par situation.
+Shah (édition 1, `databallpy`), Bekkers & Sahasrabudhe, Choi 2026, Visual Exploratory Behaviour, VPEP, exPress. Mêmes données : « The shape of a collective press » (Karayaz, forme du pressing sur le porteur) et « He raised his hand » (de Amorim, option de passe offensive). Nous traitons la ligne défensive et la fiabilité des positions, et nous distinguons de la phase « hors possession » de SkillCorner (18 % de nos pertes « directes » seulement tombent dans une transition du fournisseur).
 
 ## Bibliothèques et licences
-numpy, pandas, scipy, matplotlib, requests (BSD / MIT) ; huggingface_hub (Apache 2.0, facultatif) ; pytest (MIT). Code sous licence MIT (`LICENSE.md`).
+numpy, pandas, scipy, matplotlib, requests (BSD / MIT) ; huggingface_hub (Apache 2.0) ; pytest (MIT). Code MIT (`LICENSE.md`).
 
 ## Déclaration d'usage d'outils d'IA
 Un assistant d’IA (modèle de langage) a aidé à écrire et relire le code et les textes (français et anglais). La question, les hypothèses et les choix d’analyse ont été arrêtés par l’autrice, qui a exécuté et vérifié l’ensemble sur le jeu de données fourni (tests, `reproduce.py --mode full`) et en assume la responsabilité. Aucune donnée externe n’a été utilisée.
