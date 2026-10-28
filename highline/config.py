@@ -22,3 +22,7 @@ MIN_EVENTS = 25           # nombre minimal d'evenements d'une strate de leviers
 SIG_T = [0, 1, 2, 5, 10, 30]
 SIG_V = [0.10, 0.14, 0.44, 1.8, 4.3, 6.0]
 R90 = 2.146
+
+# Reference de la "distance a son but" : "line" = ligne de but (demi-longueur du terrain, signe donne par la position mediane du gardien) ;
+# "gk_median" = position mediane du gardien (definition de la premiere version, conservee pour comparer).
+GOAL_REFERENCE = "line"

@@ -10,6 +10,7 @@ import requests
 from . import config as cfg
 
 _DIR = Path("./data")
+_GOAL_REF = cfg.GOAL_REFERENCE
 
 
 def set_dir(path):
@@ -21,6 +22,18 @@ def set_dir(path):
 
 def get_dir():
     return _DIR
+
+
+def set_goal_reference(mode):
+    """'line' (ligne de but, par defaut) ou 'gk_median' (position mediane du gardien, premiere version)."""
+    global _GOAL_REF
+    if mode not in ("line", "gk_median"):
+        raise ValueError("reference de but : 'line' ou 'gk_median'")
+    _GOAL_REF = mode
+
+
+def goal_reference():
+    return _GOAL_REF
 
 
 def fetch(url, dest):
@@ -83,17 +96,26 @@ def load_match(mid):
     ind = pl.set_index("player_id")
     team = np.array([int(ind.team_id[c]) for c in cols])
     grp = np.array([ind.grp[c] for c in cols])
-    return dict(f0=f0, n=n, cols=cols, cidx=cidx, X=X, Y=Y, D=D, BX=BX, BY=BY, PER=PER, team=team, grp=grp)
+    return dict(f0=f0, n=n, cols=cols, cidx=cidx, X=X, Y=Y, D=D, BX=BX, BY=BY, PER=PER, team=team, grp=grp,
+                half_len=float(meta.get("pitch_length") or 105.0) / 2)
 
 
-def own_goal_sign(T):
-    """Par periode et equipe : abscisse du but defendu (position mediane du gardien)."""
+def own_goal_sign(T, reference=None):
+    """Par periode et equipe : abscisse du but defendu.
+
+    reference='line' (defaut) : ligne de but, +/- demi-longueur du terrain ; le signe vient de la position mediane du gardien.
+    reference='gk_median' : position mediane du gardien (premiere version : decalee de 10 a 18 m de la ligne de but, car le gardien
+    n'est pas observe la plupart du temps et se tient souvent haut). Les distances 'a son but' du reste du code en dependent."""
+    ref = reference or _GOAL_REF
     gx = {}
     for per in np.unique(T["PER"][T["PER"] > 0]):
         m = T["PER"] == per
         for t in np.unique(T["team"]):
             c = np.where((T["team"] == t) & (T["grp"] == "GK"))[0]
-            gx[(per, t)] = np.nanmedian(T["X"][m][:, c]) if len(c) else np.nan
+            med = np.nanmedian(T["X"][m][:, c]) if len(c) else np.nan
+            if ref == "line" and np.isfinite(med):
+                med = float(np.sign(med)) * T.get("half_len", 52.5)
+            gx[(per, t)] = med
     return gx
 
 

@@ -1,0 +1,7 @@
+huggingface_hub==1.32.0
+matplotlib==3.10.8
+numpy==2.4.3
+pandas==3.0.1
+pytest==9.0.3
+requests==2.34.2
+scipy==1.17.1

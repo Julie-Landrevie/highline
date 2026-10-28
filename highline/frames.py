@@ -74,12 +74,14 @@ def add_outcomes(df):
         sf, st = dat.shot_frames(ev, T["f0"])
         gx = dat.own_goal_sign(T)
         BX = T["BX"]
-        own, rec, rx, age, free = [], [], [], [], []
+        own, rec, rx, age, free, epv0, org0 = [], [], [], [], [], [], []
         pp = ev[ev.event_type == "player_possession"].dropna(subset=["frame_start"]).copy()
         pp["fs"] = pp.frame_start.astype(int) - T["f0"]
         pp = pp.sort_values("fs")
         pfs = pp.fs.values
         ppress = pp.overall_pressure_start.map(PRESS).values if "overall_pressure_start" in pp else np.full(len(pp), np.nan)
+        pepv = pd.to_numeric(pp["possession_epv_for_start"], errors="coerce").values if "possession_epv_for_start" in pp else np.full(len(pp), np.nan)
+        porg = pp.organised_defense.map({True: 1.0, False: 0.0, "True": 1.0, "False": 0.0}).astype(float).values if "organised_defense" in pp else np.full(len(pp), np.nan)
         for r in sub.itertuples():
             t, tm = int(r.t), int(r.team)
             g = gx.get((r.per, tm))
@@ -87,6 +89,8 @@ def add_outcomes(df):
             own.append(int(((sf > t) & (sf <= t + 150) & (st == tm)).any()))
             k = int(np.searchsorted(pfs, t, side="right")) - 1
             free.append(float(ppress[k] <= 1) if k >= 0 and np.isfinite(ppress[k]) else np.nan)
+            epv0.append(float(pepv[k]) if k >= 0 else np.nan)
+            org0.append(float(porg[k]) if k >= 0 else np.nan)
             back = np.where(poss[max(0, t - 300):t + 1][::-1] == tm)[0]
             age.append(float(back[0]) / 10.0 if len(back) else 30.0)
             idx = np.where(poss[t + 1:t + 151] == tm)[0]
@@ -97,6 +101,7 @@ def add_outcomes(df):
                 rx.append(np.nan)
         s = sub.copy()
         s["own15"], s["recov15"], s["rec_x"], s["age"], s["free"] = own, rec, rx, age, free
+        s["epv0"], s["org0"] = epv0, org0
         parts.append(s)
     return pd.concat(parts, ignore_index=True)
 
@@ -147,13 +152,19 @@ def residual_line(df, by_team_match=True):
     return res
 
 
+#: colonnes qui doivent exister dans le cache ; sinon il est reconstruit (cache ecrit par une version anterieure)
+REQUIRED = ["epv0", "org0", "score_diff", "minute"]
+
+
 def build(matches=None, cache="cache/frames.csv", refresh=False, verbose=True):
-    """Construit (ou relit) la table complete de moments defensifs pour les matchs demandes."""
+    """Construit (ou relit) la table complete de moments defensifs pour les matchs demandes.
+
+    Le cache depend de la reference de but (data.goal_reference()) : le nom du fichier doit la porter (voir pipeline)."""
     ids = list(matches or cfg.ALL_MATCHES)
     cache = Path(cache)
     if cache.exists() and not refresh:
         df = pd.read_csv(cache)
-        if set(ids) <= set(df.match_id.unique()):
+        if set(ids) <= set(df.match_id.unique()) and all(c in df.columns for c in REQUIRED):
             return df[df.match_id.isin(ids)].reset_index(drop=True)
     parts = []
     for mid in ids:

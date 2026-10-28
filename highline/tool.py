@@ -24,6 +24,8 @@ select,input[type=range]{width:100%;font:inherit;margin-top:4px}select{padding:6
 table{border-collapse:collapse;width:100%;font-size:.88rem}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
 #lang{position:absolute;top:12px;right:16px;display:flex;gap:4px}#lang button{font:inherit;font-size:.8rem;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}#lang button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
 small,.note{color:var(--mut);font-size:.82rem}svg{width:100%;height:64px}
+#mv{width:100%;height:auto;aspect-ratio:16/10;border-radius:10px;background:var(--bg);touch-action:none;cursor:grab}.ctl{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:8px}.ctl button{font:inherit;font-size:.85rem;padding:4px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}.ctl input[type=range]{width:200px;margin:0}
+.mvr{font-size:.95rem;margin-top:6px}.mvr b{color:var(--ko)}
 </style></head><body><main>
 <div id="lang"><button id="b_fr" aria-pressed="true">FR</button><button id="b_en" aria-pressed="false">EN</button></div>
 <div id="fast" class="card" style="display:none;border-color:var(--ko)"></div>
@@ -42,6 +44,7 @@ small,.note{color:var(--mut);font-size:.82rem}svg{width:100%;height:64px}
 <div class="card"><h2 style="margin-top:0" id="t3"></h2><div id="phys"></div></div>
 <div class="card"><h2 style="margin-top:0" id="t4"></h2><div id="rel"></div></div>
 <div class="card"><h2 style="margin-top:0" id="t5"></h2><div id="pose"></div></div>
+<div class="card"><h2 style="margin-top:0" id="t6"></h2><div id="mvbox"></div></div>
 <p class="note" id="limits"></p>
 </main>
 <script>
@@ -51,7 +54,10 @@ let LANG = (()=>{try{const s=localStorage.getItem("hl_lang");if(s)return s}catch
 const I = {
 fr:{h1:"La ligne haute est un pari sur le porteur",sub:"Elle rapporte s'il est pressé, elle coûte s'il est libre. Association observée sur 20 matchs de l'A-League 2024/25 (tracking SkillCorner) ; chaque chiffre porte son intervalle et son niveau de preuve.",
  fast:"<b>Mode rapide (4 matchs)</b> : test de bon fonctionnement, résultats non représentatifs. Lancer <code>python reproduce.py --mode full</code>.",
- t1:"1. Décrire la situation",t2:"2. Après une perte : contre-presser ou se replier ?",t3:"3. Le coût en course de repli",t4:"4. Peut-on croire les positions ?",t5:"5. Body Pose (exploratoire)",
+ t1:"1. Décrire la situation",t2:"2. Après une perte : contre-presser ou se replier ?",t3:"3. Le coût en course de repli",t4:"4. Peut-on croire les positions ?",t5:"5. Body Pose (exploratoire)",t6:"6. Un moment réel : ce que la caméra voit et ce qu’elle ne voit pas",
+ mv_sub:"Les disques rouille sont des défenseurs non observés à cet instant : leur position est estimée, le disque est l’erreur probable à 90 %. Le mur est la hauteur de ligne (4 défenseurs de champ les plus bas), la bande son incertitude. Glisser pour tourner la vue.",
+ mv_play:"Lecture",mv_pause:"Pause",mv_unc:"disques d’incertitude",mv_obs:k=>"4 plus bas observés : <b>"+k+" sur 4</b>",mv_ls:s=>"incertitude de la ligne : <b>± "+s+" m</b>",
+ mv_none:"Aucun moment illustratif dans cette exécution.",mv_note:"Moment choisi de façon déterministe pour illustrer (ligne plus haute que d’habitude, porteur libre, plusieurs défenseurs non observés) : il illustre, il ne prouve rien.",
  l_porteur:"Porteur",l_zone:"Zone de balle",l_score:"Score de l'équipe qui défend",l_minute:"Moment du match (min)",l_w:"Poids d'un tir concédé (en tirs créés)",
  limits:"Limites : association et non causalité ; 20 matchs (3 à 4 par équipe) ; hauteur de ligne = moyenne des 4 défenseurs de champ les plus bas ; positions extrapolées modélisées ; un tir concédé peut valoir plus ou moins qu'un tir créé (d'où le curseur). Prototype non validé auprès d'un staff.",
  names:{porteur:{tous:"tous",libre:"libre",presse:"pressé"},zone:{tous:"toutes",milieu:"milieu (35-70 m)",adversaire:"chez l'adversaire"},score:{tous:"tous",derriere:"menée",egalite:"égalité",devant:"elle mène"},minute:{tous:"tous","0-30":"0-30","30-60":"30-60","60+":"60+"}},
@@ -72,7 +78,10 @@ fr:{h1:"La ligne haute est un pari sur le porteur",sub:"Elle rapporte s'il est p
  pose_n:(n,s)=>"<p class='note'>"+n+" moments, "+s+" tirs adverses, 2 matchs : aucune conclusion possible, signal exploratoire.</p>",pose_no:"<p class='note'>Non évalué dans cette exécution (installer l'extra pose).</p>"},
 en:{h1:"The high line is a bet on the ball carrier",sub:"It pays if he is pressed, it costs if he is free. Association observed over 20 A-League 2024/25 matches (SkillCorner tracking); every figure carries its interval and its level of evidence.",
  fast:"<b>Fast mode (4 matches)</b>: smoke test only, results not representative. Run <code>python reproduce.py --mode full</code>.",
- t1:"1. Describe the situation",t2:"2. After a loss: counter-press or recover?",t3:"3. The running cost of recovering",t4:"4. Can we trust the positions?",t5:"5. Body Pose (exploratory)",
+ t1:"1. Describe the situation",t2:"2. After a loss: counter-press or recover?",t3:"3. The running cost of recovering",t4:"4. Can we trust the positions?",t5:"5. Body Pose (exploratory)",t6:"6. A real moment: what the camera sees and what it does not",
+ mv_sub:"Rust discs are defenders not observed at that instant: their position is estimated, the disc is the probable error at 90%. The wall is the line height (4 deepest outfield defenders), the band its uncertainty. Drag to rotate the view.",
+ mv_play:"Play",mv_pause:"Pause",mv_unc:"uncertainty discs",mv_obs:k=>"4 deepest observed: <b>"+k+" of 4</b>",mv_ls:s=>"line uncertainty: <b>± "+s+" m</b>",
+ mv_none:"No illustrative moment in this run.",mv_note:"Moment picked deterministically to illustrate (line higher than usual, free carrier, several unobserved defenders): it illustrates, it proves nothing.",
  l_porteur:"Ball carrier",l_zone:"Ball zone",l_score:"Defending team's score",l_minute:"Match time (min)",l_w:"Weight of a conceded shot (in created shots)",
  limits:"Limits: association, not causation; 20 matches (3 to 4 per team); line height = mean of the 4 deepest outfield defenders; extrapolated positions are modelled; a conceded shot may be worth more or less than a created one (hence the slider). Prototype not validated with a coaching staff.",
  names:{porteur:{tous:"all",libre:"free",presse:"pressed"},zone:{tous:"all",milieu:"midfield (35-70 m)",adversaire:"opponent half"},score:{tous:"all",derriere:"trailing",egalite:"level",devant:"leading"},minute:{tous:"all","0-30":"0-30","30-60":"30-60","60+":"60+"}},
@@ -127,27 +136,60 @@ function pose(){const P=DATA.pose,l=L();let h=l.pose0;
   if(P){h+="<table><tr><th>"+l.pose_h.join("</th><th>")+"</th></tr>"+P.rows.filter(r=>r.y==="opp15").map(r=>"<tr><td>"+l.pose_v[r.var]+"</td><td>"+fmt(r.eff)+" ["+fmt(r.lo)+" ; "+fmt(r.hi)+"]</td><td>"+fmtn(r.mde)+"</td></tr>").join("")+"</table>"+l.pose_n(P.n,P.shots)}else{h+=l.pose_no}
   $("pose").innerHTML=h}
 function paint(){const l=L();document.documentElement.lang=LANG;
-  for(const id of ["h1","t1","t2","t3","t4","t5","limits"])$(id).textContent=l[id==="h1"?"h1":id];
+  for(const id of ["h1","t1","t2","t3","t4","t5","t6","limits"])$(id).textContent=l[id==="h1"?"h1":id];
   $("sub").textContent=l.sub;for(const d of DIMS)$("l_"+d).textContent=l["l_"+d];$("l_w").textContent=l.l_w;
   $("fast").innerHTML=l.fast;$("fast").style.display=DATA.meta.fast?"block":"none";
   $("b_fr").setAttribute("aria-pressed",LANG==="fr");$("b_en").setAttribute("aria-pressed",LANG==="en");
-  fillSelects();levers();phys();rel();pose();render()}
+  fillSelects();levers();phys();rel();pose();render();moment()}
+
+const MV={az:0,el:.62,t:0,play:true,unc:true,last:0,ready:false};
+function moment(){const M=DATA.moment,l=L(),box=$("mvbox");
+  if(!M){box.innerHTML="<p class='note'>"+l.mv_none+"</p>";return}
+  box.innerHTML="<p class='note'>"+l.mv_sub+"</p><canvas id='mv' width='960' height='600'></canvas><div class='ctl'><button id='mvp'></button><input id='mvs' type='range' min='0' max='"+(M.meta.n-1)+"' step='0.01' value='"+MV.t+"'><label style='display:flex;gap:6px;align-items:center'><input id='mvu' type='checkbox' "+(MV.unc?"checked":"")+" style='width:auto;margin:0'>"+l.mv_unc+"</label></div><div class='mvr' id='mvr'></div><p class='note'>"+l.mv_note+"</p>";
+  const cv=$("mv");$("mvp").textContent=MV.play?l.mv_pause:l.mv_play;
+  $("mvp").onclick=()=>{MV.play=!MV.play;$("mvp").textContent=MV.play?L().mv_pause:L().mv_play};
+  $("mvs").oninput=e=>{MV.t=parseFloat(e.target.value);MV.play=false;$("mvp").textContent=L().mv_play;drawMoment()};
+  $("mvu").onchange=e=>{MV.unc=e.target.checked;drawMoment()};
+  let drag=null;cv.onpointerdown=e=>{drag=[e.clientX,e.clientY,MV.az,MV.el];cv.setPointerCapture(e.pointerId);cv.style.cursor="grabbing"};
+  cv.onpointermove=e=>{if(!drag)return;MV.az=drag[2]-(e.clientX-drag[0])*.008;MV.el=Math.min(1.45,Math.max(.12,drag[3]+(e.clientY-drag[1])*.006));drawMoment()};
+  cv.onpointerup=()=>{drag=null;cv.style.cursor="grab"};
+  if(!MV.ready){MV.ready=true;requestAnimationFrame(tick)}drawMoment()}
+function tick(ts){const M=DATA.moment;if(M&&MV.play&&$("mv")){const dt=MV.last?(ts-MV.last)/1000:0;MV.t+=dt*M.meta.fps;if(MV.t>M.meta.n-1)MV.t=0;const s=$("mvs");if(s)s.value=MV.t;drawMoment()}MV.last=ts;requestAnimationFrame(tick)}
+function lerp(a,b,f){return a==null||b==null?null:a+(b-a)*f}
+function drawMoment(){const M=DATA.moment,cv=$("mv");if(!M||!cv)return;const g=cv.getContext("2d"),W=cv.width,H=cv.height,cs=getComputedStyle(document.documentElement);
+  const col=n=>cs.getPropertyValue(n).trim(),teal=col("--ok"),rust=col("--ko"),ink=col("--fg"),grey=col("--mut"),line=col("--line"),bg=col("--bg");
+  const i0=Math.min(M.meta.n-2,Math.floor(MV.t)),f=MV.t-i0,i1=i0+1,near=f<.5?i0:i1;
+  const cx=66,A=MV.az,E=MV.el,fx=Math.cos(A),fy=Math.sin(A),rx=Math.sin(A),ry=-Math.cos(A),D=95,F0=95,K=W/84;
+  const P=(x,y,z)=>{const dx=x-cx,w=dx*fx+y*fy,u=dx*rx+y*ry,v=z*Math.cos(E)+w*Math.sin(E),d=w*Math.cos(E)-z*Math.sin(E),s=F0/(D+d);return[W/2+u*s*K,H*.62-v*s*K,s,d]};
+  g.clearRect(0,0,W,H);g.fillStyle=bg;g.fillRect(0,0,W,H);
+  const X0=34,Lp=M.meta.pitch[0],hw=34;
+  const poly=(pts,fill,stroke,alpha,dash)=>{g.beginPath();pts.forEach((q,k)=>{const p=P(q[0],q[1],q[2]||0);k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();if(fill){g.globalAlpha=alpha==null?1:alpha;g.fillStyle=fill;g.fill();g.globalAlpha=1}if(stroke){g.setLineDash(dash||[]);g.strokeStyle=stroke;g.lineWidth=1.5;g.stroke();g.setLineDash([])}};
+  const seg=(a,b)=>{const p=P(a[0],a[1],0),q=P(b[0],b[1],0);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.strokeStyle=line;g.lineWidth=1.5;g.stroke()};
+  poly([[X0,-hw-3],[Lp+3,-hw-3],[Lp+3,hw+3],[X0,hw+3]],line,null,.45);
+  seg([X0,-hw],[Lp,-hw]);seg([X0,hw],[Lp,hw]);seg([Lp,-hw],[Lp,hw]);seg([Lp/2,-hw],[Lp/2,hw]);
+  for(const[dd,w]of[[16.5,20.16],[5.5,9.16]]){seg([Lp-dd,-w],[Lp-dd,w]);seg([Lp,-w],[Lp-dd,-w]);seg([Lp,w],[Lp-dd,w])}
+  g.beginPath();for(let k=0;k<=48;k++){const t=k/48*2*Math.PI,p=P(Lp/2+9.15*Math.cos(t),9.15*Math.sin(t),0);k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])}g.strokeStyle=line;g.stroke();
+  const Ln=lerp(M.line[i0],M.line[i1],f),Sd=lerp(M.sd[i0],M.sd[i1],f);
+  if(Ln!=null){const s=Sd||0;poly([[Ln-s,-hw],[Ln+s,-hw],[Ln+s,hw],[Ln-s,hw]],rust,null,.22);poly([[Ln,-hw,0],[Ln,hw,0],[Ln,hw,3.2],[Ln,-hw,3.2]],ink,ink,.1)}
+  const items=[];
+  M.players.forEach(p=>{const x=lerp(p.x[i0],p.x[i1],f),y=lerp(p.y[i0],p.y[i1],f);if(x==null||y==null||x<X0)return;items.push({p,x,y,seen:p.det[near]===1,r:p.r[near]})});
+  if(MV.unc)items.forEach(o=>{if(o.p.side==="d"&&!o.seen&&!o.p.gk){const pts=[];for(let k=0;k<36;k++){const t=k/36*2*Math.PI;pts.push([o.x+Math.max(o.r,.4)*Math.cos(t),o.y+Math.max(o.r,.4)*Math.sin(t),0.02])}poly(pts,rust,rust,.28,[5,4])}});
+  items.map(o=>({o,d:P(o.x,o.y,0)[3]})).sort((a,b)=>b.d-a.d).forEach(({o})=>{const a=P(o.x,o.y,0),b=P(o.x,o.y,1.65),h=P(o.x,o.y,1.95),c=o.p.side==="d"?teal:grey;
+    g.globalAlpha=o.p.side==="d"&&!o.seen?.55:.95;g.strokeStyle=c;g.lineCap="round";g.lineWidth=Math.max(3,5.5*a[2]);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();
+    g.fillStyle=c;g.beginPath();g.arc(h[0],h[1],Math.max(3,4.6*a[2]),0,7);g.fill();g.globalAlpha=1});
+  const bx=lerp(M.ball.x[i0],M.ball.x[i1],f),by=lerp(M.ball.y[i0],M.ball.y[i1],f);
+  if(bx!=null){const p=P(bx,by,.3);g.fillStyle=ink;g.beginPath();g.arc(p[0],p[1],Math.max(3,4.5*p[2]),0,7);g.fill()}
+  let k=0,n=0;const deep=M.players.filter(p=>p.side==="d"&&!p.gk&&p.x[near]!=null).map(p=>[p.x[near],p.det[near]]).sort((a,b)=>a[0]-b[0]).slice(0,4);deep.forEach(d=>{k+=d[1];n++});
+  $("mvr").innerHTML=(n===4?L().mv_obs(k)+" &nbsp;·&nbsp; ":"")+(Sd!=null?L().mv_ls(fmtn(Sd,1)):"")}
 function setLang(x){LANG=x;try{localStorage.setItem("hl_lang",x)}catch(e){};paint()}
 $("b_fr").onclick=()=>setLang("fr");$("b_en").onclick=()=>setLang("en");
 paint();
 </script></body></html>"""
 
 
-def build(cell_list, diffs, lev, phys, rel, pose, path, sd_line, thin=100, min_cell=400, fast=False):
+def build(cell_list, diffs, lev, phys, rel, pose, path, sd_line, thin=100, min_cell=400, fast=False, moment=None):
     """Ecrit la page. Les tirages bootstrap sont amincis pour limiter la taille (permet de recalculer l'IC pour tout poids)."""
-    rng = np.random.default_rng(1)
-    cells_js = []
-    for c in cell_list:
-        dr = c["draws"][~np.isnan(c["draws"]).any(axis=1)]
-        if len(dr) > thin:
-            dr = dr[rng.choice(len(dr), thin, replace=False)]
-        cells_js.append(dict(key=list(c["key"]), n=c["n"], cost=round(float(c["point"][0]), 3), gain=round(float(c["point"][1]), 3),
-                             draws=[[round(float(a), 3), round(float(b), 3)] for a, b in dr]))
+    cells_js = dec.cells_payload(cell_list, thin)
     lev_js = None
     if lev:
         from .stats import pct
@@ -162,7 +204,7 @@ def build(cell_list, diffs, lev, phys, rel, pose, path, sd_line, thin=100, min_c
     diffs_js = [dict(dim=x["dim"], ok=bool(x.get("ok"))) for x in diffs]
     data = dict(dims=dec.LEVELS, cells=cells_js, diffs=diffs_js, levers=lev_js,
                 physical=None if not phys else dict(full=[round(float(v), 3) for v in phys["full"]], mean=round(phys["mean"], 3), sd_line=round(phys["sd_line"], 2)),
-                reliability=rel, pose=pose, meta=dict(sd_line=round(float(sd_line), 2), min_cell=min_cell, fast=bool(fast)))
+                reliability=rel, pose=pose, moment=moment, meta=dict(sd_line=round(float(sd_line), 2), min_cell=min_cell, fast=bool(fast)))
     html = TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":"), default=float))
     open(path, "w", encoding="utf-8").write(html)
     return path

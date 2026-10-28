@@ -104,6 +104,29 @@ def summarize(cell, w=1.0):
     return dict(cost=cost, cost_ci=(lo_c, hi_c), gain=gain, gain_ci=(lo_g, hi_g), net=net, net_ci=(lo, hi), wstar=wstar, tag=tag)
 
 
+def cells_payload(cell_list, thin=100, seed=1):
+    """Cellules serialisables (point cout / gain par ecart-type et tirages bootstrap amincis) : pour l'outil HTML et pour highline.api."""
+    rng = np.random.default_rng(seed)
+    out = []
+    for c in cell_list:
+        dr = c["draws"][~np.isnan(c["draws"]).any(axis=1)]
+        if len(dr) > thin:
+            dr = dr[rng.choice(len(dr), thin, replace=False)]
+        out.append(dict(key=list(c["key"]), n=c["n"], cost=round(float(c["point"][0]), 3), gain=round(float(c["point"][1]), 3),
+                        draws=[[round(float(a), 3), round(float(b), 3)] for a, b in dr]))
+    return out
+
+
+def export_cells(cell_list, sd_line, path, goal_reference="line", thin=100):
+    """Ecrit la table de decision en JSON (lisible par highline.api.load_table). Aucune donnee brute."""
+    import json
+    payload = dict(version=1, dims=LEVELS, goal_reference=goal_reference, sd_line=round(float(sd_line), 3), min_cell=cfg.MIN_CELL,
+                   unit="points de probabilite de tir en 15 s par ecart-type de hauteur de ligne residuelle", cells=cells_payload(cell_list, thin))
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"))
+    return path
+
+
 def label(key):
     parts = [f"{k} : {v}" for k, v in zip(DIM_ORDER, key) if v != "tous"]
     return " / ".join(parts) if parts else "ensemble"
