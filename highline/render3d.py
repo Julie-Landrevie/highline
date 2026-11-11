@@ -33,12 +33,12 @@ _FILES = {"title": "dmserifdisplay/DMSerifDisplay-Regular.ttf", "body": "lato/La
 
 TXT = {
     "fr": dict(title="La ligne haute que l’on mesure\nrepose sur des joueurs que l’on ne voit pas",
-               sub=("Chaque disque rouille est un défenseur que la caméra ne voit pas à cet instant : sa position est estimée, le disque est l’erreur probable à 90 %.{fact}"),
+               sub=("La ligne est la moyenne des 4 défenseurs les plus bas. Anneau vert : observé par la caméra ; disque rouille : position estimée, le disque est l’erreur probable à 90 %.{fact}"),
                fact=" Les 10 défenseurs de champ ne sont tous observés que dans {a} % des moments (20 matchs d’A-League).",
                obs="4 plus bas observés : {k} sur 4", unc="incertitude de la ligne : ± {s} m", line="ligne",
                src="Source : SkillCorner Open Data, A-League 2024/25\n(tracking de diffusion). Code : github.com/Julie-Landrevie/highline"),
     "en": dict(title="The high line we measure rests on\nplayers the camera cannot see",
-               sub=("Each rust disc is a defender the camera does not see at that instant: his position is estimated, the disc is the probable error at 90%.{fact}"),
+               sub=("The line is the mean of the 4 deepest defenders. Green ring: observed by the camera; rust disc: estimated position, the disc is the probable error at 90%.{fact}"),
                fact=" All 10 outfield defenders are observed in only {a}% of moments (20 A-League matches).",
                obs="4 deepest observed: {k} of 4", unc="line uncertainty: ± {s} m", line="line",
                src="Source: SkillCorner Open Data, A-League 2024/25\n(broadcast tracking). Code: github.com/Julie-Landrevie/highline"),
@@ -79,12 +79,34 @@ def _disc(cx, cy, r, z=0.02, n=40):
     return np.column_stack([cx + r * np.cos(t), cy + r * np.sin(t), np.full(n, z)])
 
 
+def _near(a, k, dtype=float):
+    """Valeur de l'image la plus proche (pas d'interpolation : un joueur est observe ou non)."""
+    n = len(a)
+    idx = np.rint(np.linspace(0, n - 1, (n - 1) * k + 1)).astype(int)
+    return np.array([np.nan if a[i] is None else a[i] for i in idx], dtype=dtype)
+
+
 def prepare(m, k=3):
-    """Series interpolees (k fois plus d'images) pour chaque joueur, la balle, la ligne et son incertitude."""
+    """Series interpolees (k fois plus d'images) pour chaque joueur, la balle, la ligne et son incertitude.
+
+    Repere d'affichage : x' = L - x et y' = - y (demi-tour du terrain). Le but defendu par l'equipe verte (x = 0 dans les donnees) est donc au FOND de l'image, la camera est
+    derriere les attaquants. Les 4 plus bas (les plus proches de leur but, rang calcule sur le repere d'origine a chaque image) sont marques : ce sont eux, et eux seuls, qui
+    portent un anneau (observe) ou un disque d'incertitude (estime)."""
+    L = float(m["meta"]["pitch"][0])
     P = []
     for p in m["players"]:
-        P.append(dict(side=p["side"], gk=p["gk"], x=_interp(p["x"], k), y=_interp(p["y"], k), det=_interp(p["det"], k) >= 0.999, r=_interp(p["r"], k)))
-    return dict(players=P, bx=_interp(m["ball"]["x"], k), by=_interp(m["ball"]["y"], k), line=_interp(m["line"], k), sd=_interp(m["sd"], k), n=(m["meta"]["n"] - 1) * k + 1, fps=m["meta"]["fps"] * k)
+        P.append(dict(side=p["side"], gk=p["gk"], depth=_interp(p["x"], k), x=L - _interp(p["x"], k), y=-_interp(p["y"], k),
+                      det=_near(p["det"], k) >= 0.5, r=_near(p["r"], k)))
+    n = (m["meta"]["n"] - 1) * k + 1
+    for q in P:
+        q["deep4"] = np.zeros(n, bool)
+    cand = [q for q in P if q["side"] == "d" and not q["gk"]]
+    for i in range(n):
+        ok = [q for q in cand if np.isfinite(q["depth"][i])]
+        if len(ok) >= 4:
+            for q in sorted(ok, key=lambda q: q["depth"][i])[:4]:
+                q["deep4"][i] = True
+    return dict(players=P, bx=L - _interp(m["ball"]["x"], k), by=-_interp(m["ball"]["y"], k), line=L - _interp(m["line"], k), sd=_interp(m["sd"], k), n=n, fps=m["meta"]["fps"] * k, L=L)
 
 
 def _pitch(ax, xmin, xmax, L=105.0, W=68.0):
@@ -103,7 +125,7 @@ def _pitch(ax, xmin, xmax, L=105.0, W=68.0):
         ax.plot([L, L - d], [-w, -w], [0, 0], **kw)
 
 
-def draw(ax, fig, S, i, T, readout, xlim=(34.0, 106.0), azim=(165.0, 195.0), elev=40.0, zoom=1.3):
+def draw(ax, fig, S, i, T, readout, xlim=(22.0, 106.0), azim=(165.0, 195.0), elev=40.0, zoom=1.3):
     ax.cla()
     ax.computed_zorder = False                      # l'ordre de dessin est explicite (sol, lignes, disques, mur, joueurs, balle)
     ax.set_axis_off()
@@ -113,7 +135,7 @@ def draw(ax, fig, S, i, T, readout, xlim=(34.0, 106.0), azim=(165.0, 195.0), ele
     ax.set_zlim(0, 12)
     ax.set_box_aspect((xlim[1] - xlim[0], 72, 14), zoom=zoom)
     ax.view_init(elev=elev, azim=azim[0] + (azim[1] - azim[0]) * i / max(1, S["n"] - 1))
-    _pitch(ax, xlim[0], xlim[1])
+    _pitch(ax, xlim[0], xlim[1], L=S["L"])
     # incertitude de la ligne puis mur de la ligne
     L, sd = S["line"][i], S["sd"][i]
     if np.isfinite(L):
@@ -130,14 +152,19 @@ def draw(ax, fig, S, i, T, readout, xlim=(34.0, 106.0), azim=(165.0, 195.0), ele
         else:
             col, al = C["teal"], 0.95
         seen = bool(p["det"][i])
-        if p["side"] == "d" and not seen and not p["gk"] and np.isfinite(p["r"][i]):
+        deep = bool(p["deep4"][i])
+        if deep and not seen and np.isfinite(p["r"][i]):
             ax.add_collection3d(Poly3DCollection([_disc(x, y, max(p["r"][i], 0.4))], facecolor=C["rust"], edgecolor=C["rust"], alpha=0.28, linewidth=1.2, linestyle="--", zorder=3))
+        if deep and seen:
+            ring = _disc(x, y, 1.5, z=0.04)
+            ax.plot(ring[:, 0], ring[:, 1], ring[:, 2], color=C["teal"], lw=2.0, alpha=0.95, zorder=3)
+        if not seen:
             al = 0.55
         ax.plot([x, x], [y, y], [0, 1.65], color=col, lw=6, alpha=al, solid_capstyle="round", zorder=5)
         ax.scatter([x], [y], [1.95], s=70, color=col, alpha=al, edgecolors=C["bg"], linewidths=0.8, zorder=5)
-    if np.isfinite(S["bx"][i]):
+    if np.isfinite(S["bx"][i]) and S["bx"][i] >= xlim[0]:
         j0 = max(0, i - 8)
-        ax.plot(S["bx"][j0:i + 1], S["by"][j0:i + 1], np.full(i + 1 - j0, 0.15), color=C["ink"], lw=1.2, alpha=0.5, zorder=6)
+        ax.plot(np.maximum(S["bx"][j0:i + 1], xlim[0]), S["by"][j0:i + 1], np.full(i + 1 - j0, 0.15), color=C["ink"], lw=1.2, alpha=0.5, zorder=6)
         ax.scatter([S["bx"][i]], [S["by"][i]], [0.3], s=90, color=C["ink"], edgecolors=C["bg"], linewidths=1.2, zorder=7)
     obs4 = _observed_of_deepest(S, i)
     readout[0].set_text(T["obs"].format(k=obs4) if obs4 is not None else "")
@@ -145,11 +172,8 @@ def draw(ax, fig, S, i, T, readout, xlim=(34.0, 106.0), azim=(165.0, 195.0), ele
 
 
 def _observed_of_deepest(S, i):
-    d = [(p["x"][i], bool(p["det"][i])) for p in S["players"] if p["side"] == "d" and not p["gk"] and np.isfinite(p["x"][i])]
-    if len(d) < 4:
-        return None
-    d.sort()
-    return sum(1 for _, o in d[:4] if o)
+    d = [bool(p["det"][i]) for p in S["players"] if p["deep4"][i]]
+    return sum(d) if len(d) == 4 else None
 
 
 def render(m, out_base, lang="fr", style="linkedin", k=3, fact_all10=None, gif=True, mp4=True, size=1200, still_at=0.5):

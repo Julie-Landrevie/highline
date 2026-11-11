@@ -55,7 +55,7 @@ const I = {
 fr:{h1:"La ligne haute est un pari sur le porteur",sub:"Elle rapporte s'il est pressé, elle coûte s'il est libre. Association observée sur 20 matchs de l'A-League 2024/25 (tracking SkillCorner) ; chaque chiffre porte son intervalle et son niveau de preuve.",
  fast:"<b>Mode rapide (4 matchs)</b> : test de bon fonctionnement, résultats non représentatifs. Lancer <code>python reproduce.py --mode full</code>.",
  t1:"1. Décrire la situation",t2:"2. Après une perte : contre-presser ou se replier ?",t3:"3. Le coût en course de repli",t4:"4. Peut-on croire les positions ?",t5:"5. Body Pose (exploratoire)",t6:"6. Un moment réel : ce que la caméra voit et ce qu’elle ne voit pas",
- mv_sub:"Les disques rouille sont des défenseurs non observés à cet instant : leur position est estimée, le disque est l’erreur probable à 90 %. Le mur est la hauteur de ligne (4 défenseurs de champ les plus bas), la bande son incertitude. Glisser pour tourner la vue.",
+ mv_sub:"La ligne est la moyenne des 4 défenseurs de champ les plus bas (le mur ; la bande est son incertitude). Anneau vert : l’un des 4, observé par la caméra ; disque rouille : l’un des 4, position estimée (le disque est l’erreur probable à 90 %). Le but défendu est au fond. Glisser pour tourner la vue.",
  mv_play:"Lecture",mv_pause:"Pause",mv_rs:"Retour au début",mv_leg:"Gris : équipe qui attaque · vert d’eau : équipe qui défend · noir : balle · tête pleine : joueur détecté par la caméra · tête creuse et estompée : position estimée (non observée).",mv_time:(a,b)=>"temps <b>"+a+" / "+b+" s</b>",mv_unc:"disques d’incertitude",mv_obs:k=>"4 plus bas observés : <b>"+k+" sur 4</b>",mv_ls:s=>"incertitude de la ligne : <b>± "+s+" m</b>",
  mv_none:"Aucun moment illustratif dans cette exécution.",mv_note:"Moment choisi de façon déterministe pour illustrer (ligne plus haute que d’habitude, porteur libre, plusieurs défenseurs non observés) : il illustre, il ne prouve rien.",
  l_porteur:"Porteur",l_zone:"Zone de balle",l_score:"Score de l'équipe qui défend",l_minute:"Moment du match (min)",l_w:"Poids d'un tir concédé (en tirs créés)",
@@ -79,7 +79,7 @@ fr:{h1:"La ligne haute est un pari sur le porteur",sub:"Elle rapporte s'il est p
 en:{h1:"The high line is a bet on the ball carrier",sub:"It pays if he is pressed, it costs if he is free. Association observed over 20 A-League 2024/25 matches (SkillCorner tracking); every figure carries its interval and its level of evidence.",
  fast:"<b>Fast mode (4 matches)</b>: smoke test only, results not representative. Run <code>python reproduce.py --mode full</code>.",
  t1:"1. Describe the situation",t2:"2. After a loss: counter-press or recover?",t3:"3. The running cost of recovering",t4:"4. Can we trust the positions?",t5:"5. Body Pose (exploratory)",t6:"6. A real moment: what the camera sees and what it does not",
- mv_sub:"Rust discs are defenders not observed at that instant: their position is estimated, the disc is the probable error at 90%. The wall is the line height (4 deepest outfield defenders), the band its uncertainty. Drag to rotate the view.",
+ mv_sub:"The line is the mean of the 4 deepest outfield defenders (the wall; the band is its uncertainty). Green ring: one of the 4, observed by the camera; rust disc: one of the 4, estimated position (the disc is the probable error at 90%). The defended goal is at the far end. Drag to rotate the view.",
  mv_play:"Play",mv_pause:"Pause",mv_rs:"Back to start",mv_leg:"Grey: attacking team · teal: defending team · black: ball · filled head: player detected by the camera · hollow, faded head: estimated (unobserved) position.",mv_time:(a,b)=>"time <b>"+a+" / "+b+" s</b>",mv_unc:"uncertainty discs",mv_obs:k=>"4 deepest observed: <b>"+k+" of 4</b>",mv_ls:s=>"line uncertainty: <b>± "+s+" m</b>",
  mv_none:"No illustrative moment in this run.",mv_note:"Moment picked deterministically to illustrate (line higher than usual, free carrier, several unobserved defenders): it illustrates, it proves nothing.",
  l_porteur:"Ball carrier",l_zone:"Ball zone",l_score:"Defending team's score",l_minute:"Match time (min)",l_w:"Weight of a conceded shot (in created shots)",
@@ -144,6 +144,7 @@ function paint(){const l=L();document.documentElement.lang=LANG;
 
 const MV={az:0,el:.62,t:0,play:true,unc:true,last:0,ready:false};
 function moment(){const M=DATA.moment,l=L(),box=$("mvbox");
+  if(M&&!M._f){const Lp0=M.meta.pitch[0],fl=a=>a.map(v=>v==null?null:Lp0-v),ng=a=>a.map(v=>v==null?null:-v);M.players.forEach(p=>{p.d0=p.x.slice();p.x=fl(p.x);p.y=ng(p.y)});M.ball.x=fl(M.ball.x);M.ball.y=ng(M.ball.y);M.line=fl(M.line);M._f=1}
   if(!M){box.innerHTML="<p class='note'>"+l.mv_none+"</p>";return}
   box.innerHTML="<p class='note'>"+l.mv_sub+"</p><canvas id='mv' width='960' height='600'></canvas><div class='ctl'><button id='mvp'></button><button id='mv0'>"+l.mv_rs+"</button><input id='mvs' type='range' min='0' max='"+(M.meta.n-1)+"' step='0.01' value='"+MV.t+"'><label style='display:flex;gap:6px;align-items:center'><input id='mvu' type='checkbox' "+(MV.unc?"checked":"")+" style='width:auto;margin:0'>"+l.mv_unc+"</label></div><div class='mvr' id='mvr'></div><p class='note'>"+l.mv_leg+"</p><p class='note'>"+l.mv_note+"</p>";
   const cv=$("mv");$("mvp").textContent=MV.play?l.mv_pause:l.mv_play;
@@ -160,27 +161,28 @@ function lerp(a,b,f){return a==null||b==null?null:a+(b-a)*f}
 function drawMoment(){const M=DATA.moment,cv=$("mv");if(!M||!cv)return;const g=cv.getContext("2d"),W=cv.width,H=cv.height,cs=getComputedStyle(document.documentElement);
   const col=n=>cs.getPropertyValue(n).trim(),teal=col("--ok"),rust=col("--ko"),ink=col("--fg"),grey=col("--mut"),line=col("--line"),bg=col("--bg");
   const i0=Math.min(M.meta.n-2,Math.floor(MV.t)),f=MV.t-i0,i1=i0+1,near=f<.5?i0:i1;
-  const cx=66,A=MV.az,E=MV.el,fx=Math.cos(A),fy=Math.sin(A),rx=Math.sin(A),ry=-Math.cos(A),D=95,F0=95,K=W/84;
+  const cx=64,A=MV.az,E=MV.el,fx=Math.cos(A),fy=Math.sin(A),rx=Math.sin(A),ry=-Math.cos(A),D=95,F0=95,K=W/84;
   const P=(x,y,z)=>{const dx=x-cx,w=dx*fx+y*fy,u=dx*rx+y*ry,v=z*Math.cos(E)+w*Math.sin(E),d=w*Math.cos(E)-z*Math.sin(E),s=F0/(D+d);return[W/2+u*s*K,H*.62-v*s*K,s,d]};
   g.clearRect(0,0,W,H);g.fillStyle=bg;g.fillRect(0,0,W,H);
-  const X0=34,Lp=M.meta.pitch[0],hw=34;
+  const X0=22,Lp=M.meta.pitch[0],hw=34;
   const poly=(pts,fill,stroke,alpha,dash)=>{g.beginPath();pts.forEach((q,k)=>{const p=P(q[0],q[1],q[2]||0);k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])});g.closePath();if(fill){g.globalAlpha=alpha==null?1:alpha;g.fillStyle=fill;g.fill();g.globalAlpha=1}if(stroke){g.setLineDash(dash||[]);g.strokeStyle=stroke;g.lineWidth=1.5;g.stroke();g.setLineDash([])}};
   const seg=(a,b)=>{const p=P(a[0],a[1],0),q=P(b[0],b[1],0);g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(q[0],q[1]);g.strokeStyle=line;g.lineWidth=1.5;g.stroke()};
-  poly([[X0,-hw-3],[Lp+3,-hw-3],[Lp+3,hw+3],[X0,hw+3]],line,null,.45);
+  poly([[X0,-hw],[Lp,-hw],[Lp,hw],[X0,hw]],line,null,.45);
   seg([X0,-hw],[Lp,-hw]);seg([X0,hw],[Lp,hw]);seg([Lp,-hw],[Lp,hw]);seg([Lp/2,-hw],[Lp/2,hw]);
   for(const[dd,w]of[[16.5,20.16],[5.5,9.16]]){seg([Lp-dd,-w],[Lp-dd,w]);seg([Lp,-w],[Lp-dd,-w]);seg([Lp,w],[Lp-dd,w])}
   g.beginPath();for(let k=0;k<=48;k++){const t=k/48*2*Math.PI,p=P(Lp/2+9.15*Math.cos(t),9.15*Math.sin(t),0);k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])}g.strokeStyle=line;g.stroke();
   const Ln=lerp(M.line[i0],M.line[i1],f),Sd=lerp(M.sd[i0],M.sd[i1],f);
   if(Ln!=null){const s=Sd||0;poly([[Ln-s,-hw],[Ln+s,-hw],[Ln+s,hw],[Ln-s,hw]],rust,null,.22);poly([[Ln,-hw,0],[Ln,hw,0],[Ln,hw,3.2],[Ln,-hw,3.2]],ink,ink,.1)}
   const items=[];
-  M.players.forEach(p=>{const x=lerp(p.x[i0],p.x[i1],f),y=lerp(p.y[i0],p.y[i1],f);if(x==null||y==null||x<X0)return;items.push({p,x,y,seen:p.det[near]===1,r:p.r[near]})});
-  if(MV.unc)items.forEach(o=>{if(o.p.side==="d"&&!o.seen&&!o.p.gk){const pts=[];for(let k=0;k<36;k++){const t=k/36*2*Math.PI;pts.push([o.x+Math.max(o.r,.4)*Math.cos(t),o.y+Math.max(o.r,.4)*Math.sin(t),0.02])}poly(pts,rust,rust,.28,[5,4])}});
+  const rk=M.players.filter(p=>p.side==="d"&&!p.gk&&p.d0[near]!=null).sort((a,b)=>a.d0[near]-b.d0[near]).slice(0,4);
+  M.players.forEach(p=>{const x=lerp(p.x[i0],p.x[i1],f),y=lerp(p.y[i0],p.y[i1],f);if(x==null||y==null||x<X0)return;items.push({p,x,y,seen:p.det[near]===1,r:p.r[near],deep:rk.indexOf(p)>=0})});
+  if(MV.unc)items.forEach(o=>{if(o.deep&&o.seen){const pts=[];for(let k=0;k<30;k++){const t=k/30*2*Math.PI;pts.push([o.x+1.5*Math.cos(t),o.y+1.5*Math.sin(t),0.04])}poly(pts,null,teal,1)}if(o.deep&&!o.seen){const pts=[];for(let k=0;k<36;k++){const t=k/36*2*Math.PI;pts.push([o.x+Math.max(o.r,.4)*Math.cos(t),o.y+Math.max(o.r,.4)*Math.sin(t),0.02])}poly(pts,rust,rust,.28,[5,4])}});
   items.map(o=>({o,d:P(o.x,o.y,0)[3]})).sort((a,b)=>b.d-a.d).forEach(({o})=>{const a=P(o.x,o.y,0),b=P(o.x,o.y,1.65),h=P(o.x,o.y,1.95),c=o.p.side==="d"?teal:grey;
     g.globalAlpha=!o.seen?.55:.95;g.strokeStyle=c;g.lineCap="round";g.lineWidth=Math.max(3,5.5*a[2]);g.beginPath();g.moveTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.stroke();
     const hr=Math.max(3,4.6*a[2]);g.beginPath();g.arc(h[0],h[1],hr,0,7);if(o.seen){g.fillStyle=c;g.fill()}else{g.fillStyle=bg;g.fill();g.strokeStyle=c;g.lineWidth=2;g.stroke()}g.globalAlpha=1});
   const bx=lerp(M.ball.x[i0],M.ball.x[i1],f),by=lerp(M.ball.y[i0],M.ball.y[i1],f);
-  if(bx!=null){const p=P(bx,by,.3);g.fillStyle=ink;g.beginPath();g.arc(p[0],p[1],Math.max(3,4.5*p[2]),0,7);g.fill()}
-  let k=0,n=0;const deep=M.players.filter(p=>p.side==="d"&&!p.gk&&p.x[near]!=null).map(p=>[p.x[near],p.det[near]]).sort((a,b)=>a[0]-b[0]).slice(0,4);deep.forEach(d=>{k+=d[1];n++});
+  if(bx!=null&&bx>=X0){const p=P(bx,by,.3);g.fillStyle=ink;g.beginPath();g.arc(p[0],p[1],Math.max(3,4.5*p[2]),0,7);g.fill()}
+  let k=0,n=0;const deep=M.players.filter(p=>p.side==="d"&&!p.gk&&p.x[near]!=null).map(p=>[p.x[near],p.det[near]]).sort((a,b)=>b[0]-a[0]).slice(0,4);deep.forEach(d=>{k+=d[1];n++});
   $("mvr").innerHTML=L().mv_time(fmtn(MV.t/M.meta.fps,1),fmtn((M.meta.n-1)/M.meta.fps,1))+" &nbsp;·&nbsp; "+(n===4?L().mv_obs(k)+" &nbsp;·&nbsp; ":"")+(Sd!=null?L().mv_ls(fmtn(Sd,1)):"")}
 function setLang(x){LANG=x;try{localStorage.setItem("hl_lang",x)}catch(e){};paint()}
 $("b_fr").onclick=()=>setLang("fr");$("b_en").onclick=()=>setLang("en");
