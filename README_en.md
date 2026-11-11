@@ -31,7 +31,7 @@ Pushing the line up creates chances but exposes the space behind. When is it wor
 | Ball in opponent half: net | +2.79 [+1.92; +3.72] | established |
 | Score, minute at equal situation | −0.18 [−0.83; +0.47]; +0.65 [−0.12; +1.42] | inconclusive |
 | Fast recovery run (% points) | +7.6 [+5.5; +9.8] | established |
-| Out-of-sample model | NO-GO | inconclusive |
+| Only the 26% of moments where the 4 deepest are detected | net +0.35 [−0.55; +1.20] | not established |
 | Checks | alignment 96% < 0.5 m; analytic placebo 5%; bootstrap 8–11% | read with caution |
 | Body Pose (2 matches) | 86 shots; min. detectable ≈ 2 | exploratory |
 
@@ -53,10 +53,10 @@ pytest                              # synthetic scenes, no data needed
 Data are downloaded from SkillCorner's open repository (not versioned); Body Pose included by default (~600 MB per match, cached). `highline.api` (`docs/API.md`) reads the decision table without the data.
 
 ## Limits
-Association, not causation (the line may go up because the situation allows it); **the effect comes mostly from moments the provider does not label organised defence** (restricted to the 77% organised, the net no longer excludes 0); bootstrap intervals slightly optimistic (8–11% of placebo intervals exclude 0 vs 5% expected); extrapolated positions (uncertainty is measured, not removed); one season, one competition; counter-press vs recovery: only the one-player swap is comparable.
+Association, not causation (the line may go up because the situation allows it); **the camera mostly sees lines close to the ball** (at equal ball position the line is 3.8 m [2.6; 4.9] higher when the 4 deepest are detected; on those moments alone the net is not established); **the effect comes mostly from moments the provider does not label organised defence** (restricted to the 77% organised, the net no longer excludes 0); bootstrap intervals slightly optimistic (8–11% of placebo intervals exclude 0 vs 5% expected); extrapolated positions (uncertainty is measured, not removed); one season, one competition; counter-press vs recovery: only the one-player swap is comparable.
 
 ## Related work
-Shah (edition 1, `databallpy`), Bekkers & Sahasrabudhe, Choi 2026, Visual Exploratory Behaviour, VPEP, exPress. Same data: “The shape of a collective press” (Karayaz, press shape around the carrier) and “He raised his hand” (de Amorim, an attacking pass option). We address the defensive line and position reliability, and differ from SkillCorner's out-of-possession phases (only 18% of our “direct” losses fall in a provider transition phase).
+Shah (edition 1, `databallpy`), Bekkers & Sahasrabudhe, Choi 2026, Bassek et al. 2025 and Corsie & Swinton 2023 (visibility and position error), Visual Exploratory Behaviour, VPEP, exPress. Same data: `backline` (nowayfootball; trust in defensive metrics off camera, no link to shots), “The shape of a collective press” (Karayaz, press shape around the carrier) and “He raised his hand” (de Amorim, an attacking pass option). We address the defensive line and position reliability, and differ from SkillCorner's out-of-possession phases (only 18% of our “direct” losses fall in a provider transition phase).
 
 ## Libraries and licences
 numpy, pandas, scipy, matplotlib, requests (BSD / MIT); huggingface_hub (Apache 2.0); pytest (MIT). Code under MIT licence (`LICENSE.md`).
