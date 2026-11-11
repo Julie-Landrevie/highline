@@ -80,3 +80,26 @@ def test_modele_placebo_s_execute():
     d = dec.prepare(synthetic_frames(1.5, 0.0, seed=8), strict=True)
     out = checks.placebo_model(d, Report(quiet=True), nperm=3)
     assert set(out) == {"opp15", "own15"} and 0 < out["opp15"]["p"] <= 1
+
+
+def test_c7_sans_biais_quand_l_observation_est_aleatoire():
+    f = synthetic_frames(effect_cost=2.0, effect_gain=1.0, seed=9)
+    rng = np.random.default_rng(1)
+    f["n_det_back4"] = rng.choice([2, 3, 4], len(f))
+    f["n_det"] = rng.choice([7, 8, 9, 10], len(f))
+    d = dec.prepare(f)
+    out = checks.line_observation(d, Report(quiet=True), nb=40)
+    assert abs(out["bias"]["gap"]) < 1.0 and len(out["bias"]["p_obs_by_line_tercile"]) == 3
+    assert "ensemble" in out["coverage"]
+
+
+def test_c7_detecte_un_biais_connu():
+    f = synthetic_frames(seed=10)
+    rng = np.random.default_rng(2)
+    obs = rng.random(len(f)) < 0.4
+    f["n_det_back4"] = np.where(obs, 4, 3)
+    f["n_det"] = 9
+    f.loc[~obs, "line"] -= 3.0                                   # les moments non observes ont une ligne estimee plus basse de 3 m, a position de balle egale
+    d = dec.prepare(f)
+    out = checks.line_observation(d, Report(quiet=True), nb=40)
+    assert 2.0 < out["bias"]["gap"] < 4.0

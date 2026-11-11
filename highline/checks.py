@@ -18,6 +18,13 @@ C6  Contexte fournisseur (post hoc). Le bilan de la ligne haute survit-il au con
     STABLE si, pour l'ensemble, le porteur libre et le porteur presse, le signe du bilan est inchange et si le changement est <= max(0,3 point ; 30 % du bilan de base).
     (xloss de SkillCorner n'existe que sur les engagements, donc pas sur chaque moment : l'EPV de la possession est le contexte disponible partout.)
 
+C7  Observation de la ligne (post hoc, inspire de la comparaison « avec / sans camera » de `backline`, nowayfootball). Trois lectures :
+    (a) couverture : part des moments ou les 4 defenseurs les plus bas (positions estimees comprises pour les classer) sont tous detectes, par bande de hauteur de ligne ;
+    (b) selection : a position de balle egale (cases de 5 m x 2 bandes laterales), ecart de hauteur de ligne entre moments ou les 4 sont detectes et les autres ; bootstrap par match.
+        Information, pas de verdict : l'ecart reflete surtout ce que la camera voit (part observee selon le tercile de ligne), pas une erreur d'estimation ;
+    (c) robustesse : le bilan de la ligne haute, recalcule sur les seuls moments ou les 4 plus bas sont detectes. STABLE si le signe est inchange pour l'ensemble,
+        le porteur libre et le porteur presse (moins de moments : intervalles plus larges, a lire comme tels).
+
 Toutes les analyses sont rapportees quel que soit le resultat.
 """
 import numpy as np
@@ -357,6 +364,68 @@ def context_control(d, rep, nb=300, seed=21):
     return dict(verdict=v, strata=res, weak_when_organised=weak)
 
 
+def line_observation(d, rep, nb=300, seed=31):
+    """C7 (post hoc) : la hauteur de ligne est-elle biaisee quand des defenseurs ne sont pas observes, et le bilan tient-il sur les moments observes ?"""
+    rep.say("C7 (post hoc) : OBSERVATION DES 4 DEFENSEURS LES PLUS BAS (detectes par la camera) ET HAUTEUR DE LIGNE")
+    if "n_det_back4" not in d or d.n_det_back4.notna().sum() < 400:
+        rep.say("   non evalue (colonne `n_det_back4` absente)")
+        return dict(verdict="n/d")
+    d = d.copy().reset_index(drop=True)
+    seen = (d.n_det_back4 == 4).values
+    bands = [("ligne < 25 m", d.line < 25), ("ligne 25-40 m", (d.line >= 25) & (d.line < 40)), ("ligne >= 40 m", d.line >= 40), ("ensemble", d.line.notna())]
+    rep.say(f"(a) couverture, moments 'bloc installe' ({len(d)} moments, {d.match_id.nunique()} matchs) :")
+    cov = {}
+    for name, m in bands:
+        m = m.values
+        if m.sum() == 0:
+            continue
+        cov[name] = dict(n=int(m.sum()), back4=float(seen[m].mean()), all10=float((d.n_det.values[m] >= 10).mean()))
+        rep.say(f"   {name:>14s} : n = {cov[name]['n']:6d} ; 4 plus bas tous detectes : {100 * cov[name]['back4']:5.1f} % ; 10 joueurs de champ detectes : {100 * cov[name]['all10']:5.1f} %")
+    cell = (np.floor(d.ball_x.values / 5).astype(int) * 2 + (d.ball_ay.values >= 11)).astype(int)
+
+    def gap(ix):
+        g, w = [], []
+        for c in np.unique(cell[ix]):
+            k = ix[cell[ix] == c]
+            a, b = k[seen[k]], k[~seen[k]]
+            if len(a) >= 30 and len(b) >= 30:
+                g.append(d.line.values[a].mean() - d.line.values[b].mean())
+                w.append(len(a))
+        return np.average(g, weights=w) if w else np.nan
+    rng = np.random.default_rng(seed)
+    by_match = {m: np.where(d.match_id.values == m)[0] for m in d.match_id.unique()}
+    ms = list(by_match)
+    allix = np.arange(len(d))
+    pt = gap(allix)
+    draws = np.array([gap(np.concatenate([by_match[m] for m in rng.choice(ms, len(ms))])) for _ in range(nb)])
+    lo, hi = np.nanpercentile(draws, [2.5, 97.5])
+    rep.say(f"(b) a position de balle egale, hauteur de ligne (tous detectes) moins (au moins un estime) : {pt:+.2f} m [{lo:+.2f} ; {hi:+.2f}] (bootstrap par match ; > 0 : la ligne est plus haute quand les 4 sont observes)")
+    rk = pd.Series(d.line.values).groupby(cell).rank(pct=True).values
+    terc = np.digitize(rk, [1 / 3, 2 / 3])
+    p_obs = [float(seen[terc == k].mean()) if (terc == k).any() else np.nan for k in range(3)]
+    rep.say(f"    Lecture : c'est de la SELECTION par la camera, pas une erreur d'estimation demontree. A position de balle egale, la part de moments ou les 4 plus bas sont observes est de "
+            f"{100 * p_obs[0]:.0f} % / {100 * p_obs[1]:.0f} % / {100 * p_obs[2]:.0f} % pour une ligne basse / moyenne / haute : observer, c'est voir surtout des lignes proches du ballon, donc plus hautes. "
+            "Les positions dans les trous sont ancrees aux deux bouts : leur erreur ne se mesure pas directement (voir docs/rapport_full.txt, fiabilite).")
+    rep.say("(c) bilan de la ligne haute (points par ecart-type, w = 1), tous moments puis moments ou les 4 plus bas sont detectes :")
+    strata = {"ensemble": np.ones(len(d), bool), "porteur libre": (d.free == 1).values, "porteur presse": (d.free == 0).values}
+    res, stable = {}, True
+    for sname, smask in strata.items():
+        row = {}
+        for vname, m in (("tous", smask), ("observes", smask & seen)):
+            if m.sum() < cfg.MIN_CELL:
+                continue
+            p, dr = _effects(d, m, dec.CTRL, nb, rng, by_match)
+            ln, hn = pct(dr[:, 1] - dr[:, 0])
+            row[vname] = (p[1] - p[0], ln, hn, int(m.sum()))
+            rep.say(f"   {sname:>16s} {vname:>9s} n = {int(m.sum()):6d} : {p[1] - p[0]:+5.2f} [{ln:+.2f} ; {hn:+.2f}]")
+        if "tous" in row and "observes" in row:
+            stable &= bool(np.sign(row["tous"][0]) == np.sign(row["observes"][0]))
+            res[sname] = row
+    v = "STABLE" if stable and res else "A VOIR"
+    rep.say(f"VERDICT C7 (robustesse) : {v}   (signe du bilan inchange sur les moments observes pour l'ensemble, le porteur libre et le porteur presse)")
+    return dict(verdict=v, bias=dict(gap=float(pt), ci=(float(lo), float(hi)), p_obs_by_line_tercile=p_obs), coverage=cov, strata=res)
+
+
 # ---------------------------------------------------------------------------------------------------------------- orchestrateur
 def run(ids, d, ds, cell_list, diffs, rep, nb=300, nperm=200, nperm_model=30, nperm_boot=60, nb_boot=100):
     """Toutes les verifications ; retourne un dict de verdicts pour le tableau du README."""
@@ -364,7 +433,7 @@ def run(ids, d, ds, cell_list, diffs, rep, nb=300, nperm=200, nperm_model=30, np
     out = {}
     for name, fn in (("C1", lambda: alignment(ids, rep)), ("C2", lambda: label_check(ids, rep)), ("C3", lambda: line_convention(ids, rep)),
                      ("C4", lambda: dict(placebo_bootstrap(d, rep, nperm=nperm_boot, nb=nb_boot), analytic=placebo_effect(d, rep, nperm=nperm))), ("C4m", lambda: placebo_model(ds, rep, nperm=nperm_model)),
-                     ("C5", lambda: multiplicity(cell_list, diffs, rep)), ("C6", lambda: context_control(d, rep, nb=nb))):
+                     ("C5", lambda: multiplicity(cell_list, diffs, rep)), ("C6", lambda: context_control(d, rep, nb=nb)), ("C7", lambda: line_observation(d, rep, nb=nb))):
         try:
             out[name] = fn()
         except Exception as ex:                                  # un controle ne doit jamais faire echouer le reste
