@@ -1,6 +1,7 @@
 """Chaine complete : donnees ouvertes -> table de moments -> table de decision, leviers, cout physique, pose -> rapport, figure, tableau, outil HTML."""
 import argparse
 import json
+import re
 import time
 from pathlib import Path
 
@@ -143,6 +144,26 @@ def run(mode="fast", data_dir="./data", pose_dir="./hp_data", out_dir="./out", c
     return dict(cells=cell_list, diffs=diffs, lev=lev, phys=phys, rel=rel, inter=inter, model=model_v, pose=pose_res, checks=chk, table=table)
 
 
+def _numbers(text):
+    return [float(x) for x in re.findall(r"[-+]?\d+(?:\.\d+)?", text)]
+
+
+def check_against(out_dir, ref_dir, tol=0.05, names=("table_1.md", "table_1_en.md")):
+    """Compare les nombres du tableau recalcule (out_dir) a ceux publies (ref_dir). Retourne (ok, liste des ecarts)."""
+    bad = []
+    for name in names:
+        a, b = Path(out_dir) / name, Path(ref_dir) / name
+        if not a.exists() or not b.exists():
+            bad.append(f"{name} : fichier absent ({a if not a.exists() else b})")
+            continue
+        x, y = _numbers(a.read_text(encoding="utf-8")), _numbers(b.read_text(encoding="utf-8"))
+        if len(x) != len(y):
+            bad.append(f"{name} : {len(x)} nombres recalcules contre {len(y)} publies")
+            continue
+        bad += [f"{name} : nombre {i + 1} : recalcule {u} contre publie {v}" for i, (u, v) in enumerate(zip(x, y)) if abs(u - v) > tol]
+    return not bad, bad
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Reproduit l'analyse 'ligne haute' (donnees ouvertes SkillCorner A-League 2024/25).")
     ap.add_argument("--mode", choices=["fast", "full"], default="fast", help="fast : 4 matchs, ~5 min ; full : 20 matchs, resultats du README")
@@ -156,8 +177,16 @@ def main(argv=None):
                     help="origine des distances 'a son but' : ligne de but (defaut) ou position mediane du gardien (premiere version, pour comparer)")
     ap.add_argument("--skip-checks", action="store_true", help="ne pas lancer les controles de credibilite (placebo, alignement, etc.)")
     ap.add_argument("--render3d", action="store_true", help="ecrit aussi le rendu 3D du moment (PNG, GIF, MP4 si ffmpeg ; FR et EN ; ~4 min)")
+    ap.add_argument("--check", metavar="DOSSIER", nargs="?", const="docs",
+                    help="apres le calcul, compare les tableaux recalcules a ceux publies dans DOSSIER (defaut : docs) ; code de sortie 1 si un nombre s'ecarte de plus de 0,05 (a utiliser avec --mode full)")
     a = ap.parse_args(argv)
     run(a.mode, a.data_dir, a.pose_dir, a.out_dir, a.cache_dir, a.matches, a.bootstrap, a.goal_reference, a.skip_checks, a.render3d)
+    if a.check:
+        ok, bad = check_against(a.out_dir, a.check)
+        print("\nVERIFICATION des resultats publies (" + a.check + ") : " + ("OK, tous les nombres concordent (a 0,05 pres)" if ok else "ECARTS"))
+        for line in bad[:30]:
+            print("  -", line)
+        raise SystemExit(0 if ok else 1)
 
 
 if __name__ == "__main__":
