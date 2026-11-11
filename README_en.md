@@ -6,10 +6,10 @@
 
 > **The high defensive line is a bet on the ball carrier: it pays if he is pressed, it costs if he is free.**
 
-Analytics Cup 2.0 (SkillCorner × PySport). Data: SkillCorner A-League 2024/25 only (20 tracking matches, dynamic events, Body Pose on 2 matches). No external data.
+Analytics Cup 2.0 (SkillCorner × PySport). Data: SkillCorner A-League 2024/25 only (20 matches, dynamic events, Body Pose on 2 matches). No external data.
 
 ## Question
-Pushing the line up creates chances but exposes the space behind. When is it worth it? Staffs see averages; we give, **situation by situation, the gain, the cost and the net balance**, with uncertainty.
+Pushing the line up creates chances but exposes the space behind. When is it worth it? Staffs see averages; we give, **situation by situation, the gain, the cost and the net balance**, with uncertainty. Position reliability is a means; the decision is the goal.
 
 ## Method
 1. **Position reliability.** An undetected player has an extrapolated position whose error grows with gap length (0.1 m at 0 s, 1.8 m at 5 s, 6 m at 30 s); 100 plausible position sets give the line uncertainty. All 10 outfield defenders are observed in only 14% of moments (36% for the 4 deepest): the line is the mean of the **4 deepest**.
@@ -45,18 +45,18 @@ With 2 matches no interval excludes 0 and the minimum detectable effect exceeds 
 
 ## Reproduce
 ```
-pip install -e .
-python reproduce.py --mode full     # 20 matches, results above
+pip install -r requirements.txt && pip install -e .
+python reproduce.py --mode full --check   # 20 matches; compares with the tables above
 python reproduce.py --mode fast     # 4 matches, smoke test
 pytest                              # synthetic scenes, no data needed
 ```
-Data are downloaded from SkillCorner's open repository (not versioned); Body Pose included by default (~600 MB per match, cached). `highline.api` (`docs/API.md`) reads the decision table without the data.
+Python 3.11, pinned `requirements.txt`; data from SkillCorner's open repository; Body Pose included by default (~600 MB per match, cached). `highline.api` (`docs/API.md`) reads the decision table without the data.
 
 ## Limits
-Association, not causation (the line may go up because the situation allows it); **the camera mostly sees lines close to the ball** (at equal ball position the line is 3.8 m [2.6; 4.9] higher when the 4 deepest are detected; on those moments alone the net is not established); **the effect comes mostly from moments the provider does not label organised defence** (restricted to the 77% organised, the net no longer excludes 0); bootstrap intervals slightly optimistic (8–11% of placebo intervals exclude 0 vs 5% expected); extrapolated positions (uncertainty is measured, not removed); one season, one competition; counter-press vs recovery: only the one-player swap is comparable.
+Association, not causation; **the camera mostly sees lines close to the ball** (at equal ball position the line is 3.8 m [2.6; 4.9] higher when the 4 deepest are detected, a finer comparison than “seen in full / all”; on those moments alone the net is not established); **the effect comes mostly from moments the provider does not label organised defence** (restricted to the 77% organised, the net no longer excludes 0); bootstrap intervals slightly optimistic (8–11% of placebo intervals exclude 0 vs 5% expected); extrapolated positions (uncertainty is measured, not removed); one season.
 
 ## Related work
-Shah (edition 1, `databallpy`), Bekkers & Sahasrabudhe, Choi 2026, Bassek et al. 2025 and Corsie & Swinton 2023 (visibility and position error), Visual Exploratory Behaviour, VPEP, exPress. Same data: `backline` (nowayfootball; trust in defensive metrics off camera, no link to shots), “The shape of a collective press” (Karayaz, press shape around the carrier) and “He raised his hand” (de Amorim, an attacking pass option). We address the defensive line and position reliability, and differ from SkillCorner's out-of-possession phases (only 18% of our “direct” losses fall in a provider transition phase).
+Shah (edition 1, `databallpy`), Bekkers & Sahasrabudhe, Choi 2026, Bassek et al. 2025 and Corsie & Swinton 2023 (visibility and position error), Visual Exploratory Behaviour, VPEP, exPress. Same data: `what-the-camera-saw` (javiersr1996; camera-seen share, selection effect) and `backline` (nowayfootball; off-camera trust), neither linked to shots nor a decision;, “The shape of a collective press” (Karayaz, press shape around the carrier) and “He raised his hand” (de Amorim, an attacking pass option). We carry reliability through to a decision, and differ from SkillCorner's out-of-possession phases (18% overlap).
 
 ## Libraries and licences
 numpy, pandas, scipy, matplotlib, requests (BSD / MIT); huggingface_hub (Apache 2.0); pytest (MIT). Code under MIT licence (`LICENSE.md`).
