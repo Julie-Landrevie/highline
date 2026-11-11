@@ -1,0 +1,29 @@
+{
+  "about": "Protocole d'analyse / analysis protocol. Seuils, constantes et regles de verdict de highline. Les controles C1, C2, C4, C5 ont ete fixes avant de regarder les resultats ; C3, C6, C7 sont post hoc et marques comme tels. Thresholds and verdict rules; C1, C2, C4, C5 were fixed before looking at results; C3, C6, C7 are post hoc and labelled so. `pytest tests/test_protocol.py` verifie que ce fichier est identique au code / checks that this file matches the code.",
+  "constants": {
+    "step_frames": 20,
+    "horizon_frames": 150,
+    "hsr_ms": 5.5,
+    "min_cell": 400,
+    "min_events": 25,
+    "r90_factor": 2.146,
+    "gap_s": [0, 1, 2, 5, 10, 30],
+    "sigma_m": [0.10, 0.14, 0.44, 1.8, 4.3, 6.0],
+    "goal_reference": "line",
+    "fp_max": 0.10
+  },
+  "selection": {
+    "block_installed": "age >= 5 s and ball_x >= 35 m from the goal line",
+    "free_carrier": "overall_pressure_start <= low_pressure",
+    "line": "mean of the 4 deepest outfield defenders"
+  },
+  "checks": {
+    "C1": {"timing": "pre-registered", "go": "median gap <= 0.10 m and >= 95% of gaps <= 0.5 m and best frame shift = 0", "a_voir": ">= 90% of gaps <= 0.5 m and best shift = 0"},
+    "C2": {"timing": "pre-registered", "go": "shot label agreement >= 98%", "a_voir": ">= 90%"},
+    "C3": {"timing": "post hoc", "go": "median gap to provider last_defensive_line_height_start <= 1 m"},
+    "C4": {"timing": "pre-registered", "go": "at most 10% of placebo intervals exclude 0 (nominal 5%)"},
+    "C5": {"timing": "pre-registered", "go": "information only"},
+    "C6": {"timing": "post hoc", "stable": "sign unchanged and change <= max(0.3 point, 30% of baseline)"},
+    "C7": {"timing": "post hoc", "stable": "sign unchanged on the moments where the 4 deepest are detected; selection gap reported, no verdict"}
+  }
+}
