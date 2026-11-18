@@ -7,10 +7,24 @@
     "min_cell": 400,
     "min_events": 25,
     "r90_factor": 2.146,
-    "gap_s": [0, 1, 2, 5, 10, 30],
-    "sigma_m": [0.10, 0.14, 0.44, 1.8, 4.3, 6.0],
+    "gap_s": [
+      0,
+      1,
+      2,
+      5,
+      10,
+      30
+    ],
+    "sigma_m": [
+      0.1,
+      0.14,
+      0.44,
+      1.8,
+      4.3,
+      6.0
+    ],
     "goal_reference": "line",
-    "fp_max": 0.10
+    "fp_max": 0.1
   },
   "selection": {
     "block_installed": "age >= 5 s and ball_x >= 35 m from the goal line",
@@ -18,12 +32,55 @@
     "line": "mean of the 4 deepest outfield defenders"
   },
   "checks": {
-    "C1": {"timing": "pre-registered", "go": "median gap <= 0.10 m and >= 95% of gaps <= 0.5 m and best frame shift = 0", "a_voir": ">= 90% of gaps <= 0.5 m and best shift = 0"},
-    "C2": {"timing": "pre-registered", "go": "shot label agreement >= 98%", "a_voir": ">= 90%"},
-    "C3": {"timing": "post hoc", "go": "median gap to provider last_defensive_line_height_start <= 1 m"},
-    "C4": {"timing": "pre-registered", "go": "at most 10% of placebo intervals exclude 0 (nominal 5%)"},
-    "C5": {"timing": "pre-registered", "go": "information only"},
-    "C6": {"timing": "post hoc", "stable": "sign unchanged and change <= max(0.3 point, 30% of baseline)"},
-    "C7": {"timing": "post hoc", "stable": "sign unchanged on the moments where the 4 deepest are detected; selection gap reported, no verdict"}
+    "C1": {
+      "timing": "pre-registered",
+      "go": "median gap <= 0.10 m and >= 95% of gaps <= 0.5 m and best frame shift = 0",
+      "a_voir": ">= 90% of gaps <= 0.5 m and best shift = 0"
+    },
+    "C2": {
+      "timing": "pre-registered",
+      "go": "shot label agreement >= 98%",
+      "a_voir": ">= 90%"
+    },
+    "C3": {
+      "timing": "post hoc",
+      "go": "median gap to provider last_defensive_line_height_start <= 1 m"
+    },
+    "C4": {
+      "timing": "pre-registered",
+      "go": "at most 10% of placebo intervals exclude 0 (nominal 5%)"
+    },
+    "C5": {
+      "timing": "pre-registered",
+      "go": "information only"
+    },
+    "C6": {
+      "timing": "post hoc",
+      "stable": "sign unchanged and change <= max(0.3 point, 30% of baseline)"
+    },
+    "C7": {
+      "timing": "post hoc",
+      "stable": "sign unchanged on the moments where the 4 deepest are detected; selection gap reported, no verdict"
+    }
+  },
+  "validation": {
+    "timing": "pre-registered (committed before the first run)",
+    "name": "T1: situation verdict vs single rule, leave-one-match-out",
+    "primary": "relative reduction of squared error of net15 (own shot minus opponent shot within 15 s), S1 (slope depends on free/pressed carrier) vs G (one slope), same controls and main effects",
+    "folds": "one per match",
+    "ci": "bootstrap over matches, 2.5-97.5 percentiles",
+    "verdict": {
+      "GO": "lower bound > 0",
+      "A_VOIR": "point > 0 and interval contains 0",
+      "NO_GO": "point <= 0"
+    },
+    "information_only": [
+      "S2 (carrier and zone) vs G",
+      "log-loss of opponent shot and own shot, S1 vs G",
+      "permutation of the carrier label within each match"
+    ],
+    "nb": 2000,
+    "nperm": 200,
+    "seed": 4242
   }
 }
