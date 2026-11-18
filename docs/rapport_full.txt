@@ -65,6 +65,16 @@ VERDICT MODELE : NO-GO   (la hauteur de ligne ajoute a la situation : False ; le
 Lecture : un gain d'AUC faible est normal pour des evenements rares (2 % de tirs) ; le modele sert a verifier que la structure du bilan n'est pas un artefact d'echantillon.
 
 ==============================================================================
+T1 : LE VERDICT PAR SITUATION FAIT-IL MIEUX QU'UNE REGLE UNIQUE, HORS ECHANTILLON ? (un match laisse de cote a la fois)
+19159 moments, 20 matchs ; resultat principal : net15 (tir de l'equipe moins tir adverse, 15 s), erreur quadratique.
+  S1 (pente selon le porteur) contre G (une pente) : reduction de l'erreur +0.148 % [-0.019 ; +0.301]
+  S2 (porteur et zone) contre G, information : +0.428 % [+0.036 ; +0.826]
+  perte logarithmique, opp15, S1 contre G, information : +0.075 % [-0.219 ; +0.348]
+  perte logarithmique, own15, S1 contre G, information : -0.099 % [-0.515 ; +0.281]
+  permutation du porteur dans chaque match (200 tirages), information : p = 0.005 (part des tirages au moins aussi bons)
+VERDICT T1 : A VOIR   (la separation va dans le bon sens hors echantillon mais n'est pas etablie avec ces matchs.)
+
+==============================================================================
 CONTROLES DE CREDIBILITE (regles dans l'en-tete de highline/checks.py)
 C1 : ALIGNEMENT TRACKING / EVENEMENTS (distance porteur-presseur lue dans le tracking contre `interplayer_distance_start`)
 17431 engagements dans 20 matchs ; ecart median 0.005 m ; 95.7 % a moins de 0,5 m ; 1.4 % a plus de 2 m
@@ -119,6 +129,23 @@ Accord avec la notion fournisseur de defense organisee : 77 % de nos moments 'bl
 VERDICT C6 : STABLE   (signe du bilan inchange et changement <= max(0,3 point ; 30 %) pour l'ensemble, le porteur libre et le porteur presse, valeur de possession ajoutee)
 ATTENTION (post hoc, hors regle de verdict) : restreint aux moments que le fournisseur juge en defense organisee, le bilan perd son intervalle excluant 0 ou change de signe pour : ensemble (+1.02 -> -0.20), porteur libre (-0.90 -> -0.25), porteur presse (+1.43 -> -0.21). Le resultat vaut surtout pour les phases de pression active ; a dire dans les limites.
 
+C7 (post hoc) : OBSERVATION DES 4 DEFENSEURS LES PLUS BAS (detectes par la camera) ET HAUTEUR DE LIGNE
+(a) couverture, moments 'bloc installe' (21327 moments, 20 matchs) :
+     ligne < 25 m : n =   1950 ; 4 plus bas tous detectes :  39.0 % ; 10 joueurs de champ detectes :  28.6 %
+    ligne 25-40 m : n =   7745 ; 4 plus bas tous detectes :  35.2 % ; 10 joueurs de champ detectes :  21.5 %
+    ligne >= 40 m : n =  11632 ; 4 plus bas tous detectes :  17.6 % ; 10 joueurs de champ detectes :   7.9 %
+         ensemble : n =  21327 ; 4 plus bas tous detectes :  26.0 % ; 10 joueurs de champ detectes :  14.7 %
+(b) a position de balle egale, hauteur de ligne (tous detectes) moins (au moins un estime) : +3.76 m [+2.60 ; +4.93] (bootstrap par match ; > 0 : la ligne est plus haute quand les 4 sont observes)
+    Lecture : c'est de la SELECTION par la camera, pas une erreur d'estimation demontree. A position de balle egale, la part de moments ou les 4 plus bas sont observes est de 18 % / 25 % / 34 % pour une ligne basse / moyenne / haute : observer, c'est voir surtout des lignes proches du ballon, donc plus hautes. Les positions dans les trous sont ancrees aux deux bouts : leur erreur ne se mesure pas directement (voir docs/rapport_full.txt, fiabilite).
+(c) bilan de la ligne haute (points par ecart-type, w = 1), tous moments puis moments ou les 4 plus bas sont detectes :
+           ensemble      tous n =  21327 : +1.02 [+0.47 ; +1.46]
+           ensemble  observes n =   5536 : +0.35 [-0.55 ; +1.19]
+      porteur libre      tous n =  10604 : -0.90 [-1.87 ; -0.08]
+      porteur libre  observes n =   2678 : -0.54 [-1.98 ; +0.57]
+     porteur presse      tous n =   8555 : +1.43 [+0.40 ; +2.52]
+     porteur presse  observes n =   2431 : -0.21 [-1.66 ; +1.21]
+VERDICT C7 (robustesse) : A VOIR   (signe du bilan inchange sur les moments observes pour l'ensemble, le porteur libre et le porteur presse)
+
 
 ==============================================================================
 LEVIERS : CONTRE-PRESSER OU SE REPLIER ? (pertes de balle d'une equipe A ; OR par ecart-type)
@@ -169,18 +196,6 @@ SENSIBILITE AU SEUIL DE QUALITE DE POSE (post hoc ; le seuil enregistre est 20 c
    30 cm          89 %     1695        86 |    +1.32 [-0.29;+2.92]             2.29 |    +0.54 [-0.75;+1.82]             1.83
 Lecture : un seuil plus strict garde moins de joueurs et moins de moments (ecart minimal detectable plus grand) ; la conclusion « exploratoire » ne depend pas du seuil si aucun intervalle n'exclut 0.
 Moment illustre : match 1996435, equipe 869, image 10440 (choisi par moment.select ; autre moment : python -m highline.render3d --match ... --team ... --frame ...)
-rendu 3D : out/moment3d_linkedin_fr.png
-rendu 3D : out/moment3d_linkedin_fr.mp4
-rendu 3D : out/moment3d_linkedin_fr.gif
-rendu 3D : out/moment3d_plain_fr.png
-rendu 3D : out/moment3d_plain_fr.mp4
-rendu 3D : out/moment3d_plain_fr.gif
-rendu 3D : out/moment3d_linkedin_en.png
-rendu 3D : out/moment3d_linkedin_en.mp4
-rendu 3D : out/moment3d_linkedin_en.gif
-rendu 3D : out/moment3d_plain_en.png
-rendu 3D : out/moment3d_plain_en.mp4
-rendu 3D : out/moment3d_plain_en.gif
 
 ==============================================================================
-Fichiers ecrits dans out/ : rapport.txt, figure_1(.en).png, table_1(_en).md, outil_decision.html, decision_cells.json, moment.json  (196 s)
+Fichiers ecrits dans out/ : rapport.txt, figure_1(.en).png, table_1(_en).md, outil_decision.html, decision_cells.json, moment.json  (77 s)
