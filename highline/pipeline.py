@@ -10,7 +10,7 @@ import numpy as np
 from . import config as cfg
 from . import data as dat
 from . import decision as dec
-from . import checks, figure, i18n, levers, moment as mom, physical, pose, tool, validation
+from . import checks, figure, i18n, levers, moment as mom, physical, pose, sensitivity, tool, validation
 from . import frames as fr
 from .report import Report
 
@@ -102,6 +102,8 @@ def run(mode="fast", data_dir="./data", pose_dir="./hp_data", out_dir="./out", c
     model_v = dec.model_validation(ds, rep, nb=nb)
     rep.say("\n" + "=" * 78)
     sit_v = validation.situation_vs_rule(ds, rep, nb=200 if fast else validation.NB_DEFAULT, nperm=20 if fast else validation.NPERM_DEFAULT)
+    rep.say("\n" + "=" * 78)
+    sens_v = sensitivity.run(df, rep, nb=100 if fast else sensitivity.NB_DEFAULT)
 
     chk = None
     if not skip_checks:
@@ -143,7 +145,7 @@ def run(mode="fast", data_dir="./data", pose_dir="./hp_data", out_dir="./out", c
                     rep.say(f"rendu 3D : {f}")
     rep.say("\n" + "=" * 78 + f"\nFichiers ecrits dans {out}/ : rapport.txt, figure_1(.en).png, table_1(_en).md, outil_decision.html, decision_cells.json, moment.json  ({time.time() - t0:.0f} s)")
     rep.save(out / "rapport.txt")
-    return dict(cells=cell_list, diffs=diffs, lev=lev, phys=phys, rel=rel, inter=inter, model=model_v, situation=sit_v, pose=pose_res, checks=chk, table=table)
+    return dict(cells=cell_list, diffs=diffs, lev=lev, phys=phys, rel=rel, inter=inter, model=model_v, situation=sit_v, sensitivity=sens_v, pose=pose_res, checks=chk, table=table)
 
 
 def _numbers(text):

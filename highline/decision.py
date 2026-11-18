@@ -19,14 +19,14 @@ PAIRS = [(("score", "derriere"), ("score", "devant")), (("minute", "0-30"), ("mi
          (("porteur", "libre"), ("porteur", "presse")), (("zone", "milieu"), ("zone", "adversaire"))]
 
 
-def prepare(df, strict=False):
+def prepare(df, strict=False, min_age=5, min_ball_x=35):
     """Population du tableau de decision. strict=True exige score, minute et porteur connus (tests d'interaction et modele)."""
     tab = df.copy().reset_index(drop=True)
     tab["opp15"] = tab["shot15"]
     tab["res"] = fr.residual_line(tab, True)
     need = ["res", "ball_x", "ball_ay"] + (["score_diff", "minute", "free"] if strict else [])
     d = tab.dropna(subset=need)
-    d = d[(d.age >= 5) & (d.ball_x >= 35)].copy().reset_index(drop=True)
+    d = d[(d.age >= min_age) & (d.ball_x >= min_ball_x)].copy().reset_index(drop=True)     # defauts = definition du bloc installe ; modifies seulement par le test de sensibilite
     d["net15"] = d.own15 - d.opp15
     d["f_res"] = zs(d.res)
     d["f_bx"], d["f_bx2"], d["f_ay"] = zs(d.ball_x), zs(d.ball_x ** 2), zs(d.ball_ay)

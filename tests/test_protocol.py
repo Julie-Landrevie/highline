@@ -1,6 +1,6 @@
 """Le protocole publie (docs/PROTOCOLE.json) doit rester identique aux constantes du code."""
 import json, pathlib
-from highline import config, checks, validation
+from highline import config, checks, sensitivity, validation
 
 _P = json.loads((pathlib.Path(__file__).parent.parent / "docs" / "PROTOCOLE.json").read_text(encoding="utf-8"))
 P = _P["constants"]
@@ -22,3 +22,9 @@ def test_constantes_du_protocole_egales_au_code():
 def test_regle_de_validation_egale_au_code():
     V = _P["validation"]
     assert (V["nb"], V["nperm"], V["seed"]) == (validation.NB_DEFAULT, validation.NPERM_DEFAULT, validation.SEED)
+
+
+def test_regle_de_sensibilite_egale_au_code():
+    S = _P["sensitivity"]
+    assert (S["nb"], S["seed"]) == (sensitivity.NB_DEFAULT, sensitivity.SEED)
+    assert S["variants"]["block_age_s"] == list(sensitivity.AGES) and S["variants"]["ball_distance_m"] == list(sensitivity.BALLS)

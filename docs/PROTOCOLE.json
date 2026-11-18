@@ -82,5 +82,35 @@
     "nb": 2000,
     "nperm": 200,
     "seed": 4242
+  },
+  "sensitivity": {
+    "timing": "pre-registered (committed before the first run)",
+    "name": "T2: where the verdict flips when one assumption changes",
+    "quantities": "net balance (w=1) for all, free carrier, pressed carrier, and free minus pressed",
+    "variants": {
+      "block_age_s": [
+        3,
+        8,
+        12
+      ],
+      "ball_distance_m": [
+        40,
+        45
+      ],
+      "controls": [
+        "ball only",
+        "no distance to goal",
+        "controls + block age"
+      ],
+      "leave_one_match_out": true
+    },
+    "verdict": {
+      "ROBUST": "all signs as in the base and the CI of free-minus-pressed excludes 0 in every variant",
+      "A_VOIR": "signs kept but that CI contains 0 in at least one variant",
+      "FRAGILE": "a sign changes in at least one variant"
+    },
+    "not_covered": "definition of free/pressed (provider pressure level) and the position-error scale, fixed upstream in frames.py",
+    "nb": 500,
+    "seed": 515
   }
 }
