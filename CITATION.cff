@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this code or its results, please cite it as below."
+title: "highline: when to push the defensive line up (cost, gain and reliability by situation)"
+type: software
+authors:
+  - family-names: Landrevie
+    given-names: Julie
+version: 0.2.0
+date-released: "2026-12-18"
+license: MIT
+repository-code: "https://github.com/Julie-Landrevie/highline"
+abstract: >-
+  Open-source tool that helps a coaching staff read a defensive-line decision
+  (push the line up or not) by situation, using SkillCorner Open Data
+  (A-League 2024/25, twenty matches of broadcast tracking). Each verdict carries
+  the uncertainty of the estimated positions and says what is not established.
+  Association only, not causation.
+keywords:
+  - football analytics
+  - tracking data
+  - defensive line
+  - uncertainty
+  - SkillCorner Open Data
+  - Analytics Cup 2.0

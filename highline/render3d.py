@@ -53,11 +53,13 @@ def _fonts():
             os.makedirs(FONT_DIR, exist_ok=True)
             path = os.path.join(FONT_DIR, os.path.basename(rel))
             if not os.path.exists(path):
-                urllib.request.urlretrieve("https://raw.githubusercontent.com/google/fonts/main/ofl/" + rel, path)
+                if os.environ.get("HIGHLINE_DOWNLOAD_FONTS") != "1":      # aucun telechargement par defaut : polices locales ou polices du systeme
+                    raise FileNotFoundError(path)
+                urllib.request.urlretrieve("https://raw.githubusercontent.com/google/fonts/main/ofl/" + rel, path)   # option, polices libres (OFL) pour la mise en page des visuels
             out[k] = fm.FontProperties(fname=path)
         except Exception:
             out[k] = fm.FontProperties(family="serif" if k == "title" else "sans-serif", weight="bold" if k in ("bold", "black") else "normal")
-            warn = "polices DM Serif Display / Lato indisponibles : polices par defaut utilisees"
+            warn = "polices DM Serif Display / Lato absentes : polices par defaut utilisees (HIGHLINE_DOWNLOAD_FONTS=1 pour les telecharger)"
     return out, warn
 
 
