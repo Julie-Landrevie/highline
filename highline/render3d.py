@@ -3,12 +3,16 @@
     python -m highline.render3d --out out/moment3d              # choisit un moment (moment.select) et ecrit .png, .gif et .mp4 si ffmpeg est present
     python -m highline.render3d --match 1996435 --team 869 --frame 10440 --lang en --style plain
 
-Lecture : defenseurs en vert d'eau, attaquants en gris, balle en noir. Un defenseur que la camera ne voit pas a cet instant est un DISQUE ROUILLE : sa position est estimee,
+Lecture : defenseurs en vert d'eau, attaquants en gris, balle blanche. Un defenseur que la camera ne voit pas a cet instant est un DISQUE ROUILLE : sa position est estimee,
 le disque est le rayon a 90 % de l'erreur probable (couche de fiabilite). Le mur noir est la hauteur de ligne (4 defenseurs de champ les plus bas), la bande rouille son incertitude.
 Les positions sont celles du fournisseur (SkillCorner, A-League 2024/25) ; aucune n'est inventee ; entre deux images (5 Hz) elles sont interpolees pour la fluidite.
 
 Styles : `linkedin` = carre 1200 x 1200, fond creme, titre, signature (polices DM Serif Display et Lato telechargees si possible, licence OFL ; sinon polices par defaut, avec un avertissement) ;
-`plain` = meme scene sans titre ni signature (pour la video du concours)."""
+`plain` = meme scene sans titre ni signature (pour la video du concours).
+
+Aspect (`--look`) : `charte` (defaut) = pelouse aux teintes cremes de la charte ; `realiste` = pelouse verte, lignes blanches. Les couleurs de lecture (vert d'eau, gris, rouille) ne changent pas.
+Les joueurs sont des volumes (jambes, buste, tete) avec ombre au sol ; le ballon est une sphere a pentagones qui roule avec son deplacement (agrandi x2,5) ; un joueur non detecte est translucide. Les cages sont dessinees a la taille reglementaire (7,32 m x 2,44 m).
+La hauteur des joueurs est un gabarit unique (1,8 m) : le tracking ne donne que (x, y)."""
 import argparse
 import json
 import os
@@ -24,8 +28,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib import font_manager as fm
+from matplotlib.colors import to_rgb
 from matplotlib.patches import FancyBboxPatch
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 
 C = dict(bg="#f6f1e7", ink="#1c1917", ink2="#57534e", muted="#8a8580", grid="#e4dccd", teal="#0d8f84", rust="#cc4a12", compare="#c9c0b1", card="#fbf8f2")
 FONT_DIR = os.path.expanduser("~/.fonts_jl")
@@ -108,66 +113,199 @@ def prepare(m, k=3):
         if len(ok) >= 4:
             for q in sorted(ok, key=lambda q: q["depth"][i])[:4]:
                 q["deep4"][i] = True
-    return dict(players=P, bx=L - _interp(m["ball"]["x"], k), by=-_interp(m["ball"]["y"], k), line=L - _interp(m["line"], k), sd=_interp(m["sd"], k), n=n, fps=m["meta"]["fps"] * k, L=L)
+    bx = L - _interp(m["ball"]["x"], k)
+    by_ = -_interp(m["ball"]["y"], k)
+    step = np.hypot(np.diff(bx, prepend=bx[0]), np.diff(by_, prepend=by_[0]))
+    bpath = np.cumsum(np.nan_to_num(step))                                      # chemin parcouru par le ballon (pour le faire rouler)
+    xs = np.concatenate([q["x"][np.isfinite(q["x"])] for q in P if not q["gk"]] + [bx[np.isfinite(bx)]])
+    xlo = float(max(0.0, np.floor(xs.min()) - 8.0)) if len(xs) else 22.0          # cadrage : on garde 8 m derriere le joueur ou le ballon le plus proche de la camera
+    return dict(players=P, bx=bx, by=-_interp(m["ball"]["y"], k), line=L - _interp(m["line"], k), sd=_interp(m["sd"], k), n=n, fps=m["meta"]["fps"] * k, L=L, xlo=xlo, bpath=bpath)
 
 
-def _pitch(ax, xmin, xmax, L=105.0, W=68.0):
+LOOKS = {
+    "charte": dict(rust="#cc4a12", grass=("#efe8d8", "#e9e0cc"), surround="#e4dccd", line="#c9c0b1", goal="#57534e", net="#8a8580", att="#8a8580", dfd="#0d8f84", ball="#fdfcf8", shadow=0.20),
+    "realiste": dict(rust="#f2682a", grass=("#5c8a53", "#548049"), surround="#476d40", line="#f3f0e6", goal="#f3f0e6", net="#e6e2d6", att="#d9d5cc", dfd="#12a698", ball="#ffffff", shadow=0.30),
+}
+_LIGHT = np.array([-0.45, -0.35, 0.82])
+_LIGHT = _LIGHT / np.linalg.norm(_LIGHT)
+SCALE = 1.25                                               # gabarit agrandi de 25 % pour rester lisible a cette distance
+HEIGHT = dict(legs=0.88 * SCALE, torso=1.52 * SCALE, head=1.69 * SCALE)   # gabarit unique : le tracking ne donne que (x, y)
+
+
+def _shade(rgb, normal, alpha=1.0, amb=0.60, gain=0.55):
+    n = np.asarray(normal, float)
+    n = n / (np.linalg.norm(n) or 1.0)
+    f = amb + gain * max(0.0, float(n @ _LIGHT))
+    return tuple(min(1.0, c * f) for c in rgb) + (alpha,)
+
+
+def _mix(rgb, other, t):
+    return tuple(a * (1 - t) + b * t for a, b in zip(rgb, other))
+
+
+def _frustum(x, y, z0, z1, r0, r1, rgb, alpha, n=8):
+    t = np.linspace(0, 2 * np.pi, n + 1)
+    polys, cols = [], []
+    for k in range(n):
+        a0, a1 = t[k], t[k + 1]
+        polys.append([[x + r0 * np.cos(a0), y + r0 * np.sin(a0), z0], [x + r0 * np.cos(a1), y + r0 * np.sin(a1), z0],
+                      [x + r1 * np.cos(a1), y + r1 * np.sin(a1), z1], [x + r1 * np.cos(a0), y + r1 * np.sin(a0), z1]])
+        am = (a0 + a1) / 2
+        cols.append(_shade(rgb, [np.cos(am), np.sin(am), 0.15], alpha))
+    polys.append([[x + r1 * np.cos(a), y + r1 * np.sin(a), z1] for a in t[:-1]])
+    cols.append(_shade(rgb, [0, 0, 1.0], alpha))
+    return polys, cols
+
+
+def _sphere(x, y, z, r, rgb, alpha, nlat=4, nlon=8):
+    lat, lon = np.linspace(-np.pi / 2, np.pi / 2, nlat + 1), np.linspace(0, 2 * np.pi, nlon + 1)
+    polys, cols = [], []
+    for i in range(nlat):
+        for j in range(nlon):
+            P = np.array([[x + r * np.cos(a) * np.cos(b), y + r * np.cos(a) * np.sin(b), z + r * np.sin(a)]
+                          for a, b in ((lat[i], lon[j]), (lat[i], lon[j + 1]), (lat[i + 1], lon[j + 1]), (lat[i + 1], lon[j]))])
+            polys.append(P.tolist())
+            cols.append(_shade(rgb, P.mean(axis=0) - np.array([x, y, z]), alpha))
+    return polys, cols
+
+
+def _body(x, y, rgb, alpha):
+    """Joueur = jambes + buste (troncs de cone) + tete : un seul objet pour garder l'ordre de dessin."""
+    legs, cl = _frustum(x, y, 0.0, HEIGHT["legs"], 0.17 * SCALE, 0.21 * SCALE, _mix(rgb, (0, 0, 0), 0.25), alpha)
+    torso, ct = _frustum(x, y, HEIGHT["legs"], HEIGHT["torso"], 0.27 * SCALE, 0.24 * SCALE, rgb, alpha)
+    head, ch = _sphere(x, y, HEIGHT["head"], 0.14 * SCALE, _mix(rgb, (1, 1, 1), 0.45), alpha)
+    return legs + torso + head, cl + ct + ch
+
+
+BALL_R = 0.11 * 2.5                                           # rayon reglementaire (0,11 m) x 2,5 pour rester lisible
+_PHI = (1 + 5 ** 0.5) / 2
+_ICO = np.array([(0, s1, s2 * _PHI) for s1 in (-1, 1) for s2 in (-1, 1)] + [(s1, s2 * _PHI, 0) for s1 in (-1, 1) for s2 in (-1, 1)]
+                + [(s2 * _PHI, 0, s1) for s1 in (-1, 1) for s2 in (-1, 1)], float)
+_ICO /= np.linalg.norm(_ICO, axis=1)[:, None]                  # 12 directions : les 12 pentagones noirs d'un ballon
+
+
+def _rot(axis, ang):
+    a = np.asarray(axis, float)
+    n = np.linalg.norm(a)
+    if n < 1e-9:
+        return np.eye(3)
+    a = a / n
+    K = np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+    return np.eye(3) + np.sin(ang) * K + (1 - np.cos(ang)) * (K @ K)
+
+
+def _ball(cx, cy, r, R, white, dark, nlat=8, nlon=14):
+    """Ballon : sphere eclairee, pentagones sombres ; R = rotation (le ballon roule : le motif tourne avec le chemin parcouru)."""
+    lat, lon = np.linspace(-np.pi / 2, np.pi / 2, nlat + 1), np.linspace(0, 2 * np.pi, nlon + 1)
+    polys, cols = [], []
+    for i in range(nlat):
+        for j in range(nlon):
+            P = np.array([[cx + r * np.cos(a) * np.cos(b), cy + r * np.cos(a) * np.sin(b), r + r * np.sin(a)]
+                          for a, b in ((lat[i], lon[j]), (lat[i], lon[j + 1]), (lat[i + 1], lon[j + 1]), (lat[i + 1], lon[j]))])
+            nrm = P.mean(axis=0) - np.array([cx, cy, r])
+            nrm = nrm / np.linalg.norm(nrm)
+            patch = float((_ICO @ (R.T @ nrm)).max()) > 0.90
+            polys.append(P.tolist())
+            cols.append(_shade(to_rgb(dark if patch else white), nrm, 1.0, amb=0.72, gain=0.40))
+    return polys, cols
+
+
+def _ellipse(cx, cy, rx, ry, z=0.012, n=24):
+    t = np.linspace(0, 2 * np.pi, n)
+    return np.column_stack([cx + rx * np.cos(t), cy + ry * np.sin(t), np.full(n, z)])
+
+
+def _pitch(ax, xmin, xmax, L=105.0, W=68.0, look="charte"):
+    cfg_ = LOOKS[look]
     hw = W / 2
-    ground = [[xmin, -hw, 0], [L, -hw, 0], [L, hw, 0], [xmin, hw, 0]]       # le sol est le terrain : bords nets, pas de panneau tronque
-    ax.add_collection3d(Poly3DCollection([ground], facecolor="#efe8d8", edgecolor="none", alpha=1.0, zorder=0))
-    kw = dict(color=C["compare"], lw=1.2, zorder=1)
+    ax.add_collection3d(Poly3DCollection([[[xmin, -hw - 3, -0.02], [xmax, -hw - 3, -0.02], [xmax, hw + 3, -0.02], [xmin, hw + 3, -0.02]]], facecolor=cfg_["surround"], edgecolor="none", zorder=0))
+    nstr, step = 18, L / 18                                  # bandes de tonte
+    stripes, cols = [], []
+    for k in range(nstr):
+        a, b = L - (k + 1) * step, L - k * step
+        if b <= xmin:
+            continue
+        a = max(a, xmin)
+        stripes.append([[a, -hw, 0], [b, -hw, 0], [b, hw, 0], [a, hw, 0]])
+        cols.append(cfg_["grass"][k % 2])
+    ax.add_collection3d(Poly3DCollection(stripes, facecolors=cols, edgecolors=cols, linewidths=0.3, zorder=0.5))
+    kw = dict(color=cfg_["line"], lw=1.5, zorder=1)
     ax.plot([xmin, L], [-hw, -hw], [0, 0], **kw)
     ax.plot([xmin, L], [hw, hw], [0, 0], **kw)
     ax.plot([L, L], [-hw, hw], [0, 0], **kw)
     ax.plot([L / 2, L / 2], [-hw, hw], [0, 0], **kw)
-    t = np.linspace(0, 2 * np.pi, 60)
-    ax.plot(L / 2 + 9.15 * np.cos(t), 9.15 * np.sin(t), np.zeros(60), **kw)
+    t = np.linspace(0, 2 * np.pi, 80)
+    ax.plot(L / 2 + 9.15 * np.cos(t), 9.15 * np.sin(t), np.zeros(80), **kw)
     for d, w in ((16.5, 20.16), (5.5, 9.16)):
         ax.plot([L - d, L - d, L], [-w, w, w], [0, 0, 0], **kw)
         ax.plot([L, L - d], [-w, -w], [0, 0], **kw)
+    ax.plot([L - 11], [0], [0], marker="o", ms=3, color=cfg_["line"], zorder=1)          # point de penalty
+    a = np.arccos(5.5 / 9.15)
+    ta = np.linspace(np.pi - a, np.pi + a, 30)                                              # arc de la surface
+    ax.plot(L - 11 + 9.15 * np.cos(ta), 9.15 * np.sin(ta), np.zeros(30), **kw)
+    # cage reglementaire : 7,32 m x 2,44 m, filet de 2 m de profondeur
+    g, h, dp = 3.66, 2.44, 2.0
+    posts = [[(L, -g, 0), (L, -g, h)], [(L, g, 0), (L, g, h)], [(L, -g, h), (L, g, h)]]
+    ax.add_collection3d(Line3DCollection(posts, colors=cfg_["goal"], linewidths=2.6, zorder=1.6))
+    net = []
+    for yy in np.linspace(-g, g, 15):
+        net.append([(L + dp, yy, 0), (L + dp, yy, h)])
+    for zz in np.linspace(0, h, 7):
+        net.append([(L + dp, -g, zz), (L + dp, g, zz)])
+    for sgn in (-1, 1):
+        for zz in np.linspace(0, h, 5):
+            net.append([(L, sgn * g, zz), (L + dp, sgn * g, zz)])
+    for yy in np.linspace(-g, g, 9):
+        net.append([(L, yy, h), (L + dp, yy, h)])
+    net += [[(L, -g, h), (L + dp, -g, h)], [(L, g, h), (L + dp, g, h)]]
+    ax.add_collection3d(Line3DCollection(net, colors=cfg_["net"], linewidths=0.5, alpha=0.55, zorder=1.4))
 
 
-def draw(ax, fig, S, i, T, readout, xlim=(22.0, 106.0), azim=(165.0, 195.0), elev=40.0, zoom=1.3):
+def draw(ax, fig, S, i, T, readout, xlim=(None, None), azim=(165.0, 195.0), elev=28.0, zoom=1.3, look="charte"):
+    cfg_ = LOOKS[look]
+    xlim = (xlim[0] if xlim[0] is not None else S["xlo"], xlim[1] if xlim[1] is not None else S["L"] + 3.5)
     ax.cla()
     ax.computed_zorder = False                      # l'ordre de dessin est explicite (sol, lignes, disques, mur, joueurs, balle)
     ax.set_axis_off()
     ax.patch.set_alpha(0)
     ax.set_xlim(*xlim)
-    ax.set_ylim(-36, 36)
+    ax.set_ylim(-38, 38)
     ax.set_zlim(0, 12)
-    ax.set_box_aspect((xlim[1] - xlim[0], 72, 14), zoom=zoom)
+    ax.set_box_aspect((xlim[1] - xlim[0], 76, 14), zoom=zoom)
     ax.view_init(elev=elev, azim=azim[0] + (azim[1] - azim[0]) * i / max(1, S["n"] - 1))
-    _pitch(ax, xlim[0], xlim[1], L=S["L"])
+    _pitch(ax, xlim[0], xlim[1], L=S["L"], look=look)
     # incertitude de la ligne puis mur de la ligne
     L, sd = S["line"][i], S["sd"][i]
     if np.isfinite(L):
         s = sd if np.isfinite(sd) else 0.0
-        ax.add_collection3d(Poly3DCollection([[[L - s, -34, 0.03], [L + s, -34, 0.03], [L + s, 34, 0.03], [L - s, 34, 0.03]]], facecolor=C["rust"], edgecolor="none", alpha=0.22, zorder=2))
+        ax.add_collection3d(Poly3DCollection([[[L - s, -34, 0.03], [L + s, -34, 0.03], [L + s, 34, 0.03], [L - s, 34, 0.03]]], facecolor=cfg_["rust"], edgecolor="none", alpha=0.34, zorder=2))
         ax.add_collection3d(Poly3DCollection([[[L, -34, 0], [L, 34, 0], [L, 34, 3.2], [L, -34, 3.2]]], facecolor=C["ink"], edgecolor=C["ink"], alpha=0.10, linewidth=1.0, zorder=4))
-    # joueurs
+    # joueurs (du fond vers l'avant)
     for p in sorted(S["players"], key=lambda q: -q["x"][i] if np.isfinite(q["x"][i]) else 0):
         x, y = p["x"][i], p["y"][i]
         if not (np.isfinite(x) and np.isfinite(y)) or x < xlim[0]:
             continue
-        if p["side"] == "a":
-            col, al = C["muted"], 0.95
-        else:
-            col, al = C["teal"], 0.95
+        rgb = to_rgb(cfg_["att"] if p["side"] == "a" else cfg_["dfd"])
         seen = bool(p["det"][i])
         deep = bool(p["deep4"][i])
         if deep and not seen and np.isfinite(p["r"][i]):
-            ax.add_collection3d(Poly3DCollection([_disc(x, y, max(p["r"][i], 0.4))], facecolor=C["rust"], edgecolor=C["rust"], alpha=0.28, linewidth=1.2, linestyle="--", zorder=3))
+            ax.add_collection3d(Poly3DCollection([_disc(x, y, max(p["r"][i], 0.4))], facecolor=cfg_["rust"], edgecolor=cfg_["rust"], alpha=0.30, linewidth=1.4, linestyle="--", zorder=3))
         if deep and seen:
             ring = _disc(x, y, 1.5, z=0.04)
-            ax.plot(ring[:, 0], ring[:, 1], ring[:, 2], color=C["teal"], lw=2.0, alpha=0.95, zorder=3)
-        if not seen:
-            al = 0.55
-        ax.plot([x, x], [y, y], [0, 1.65], color=col, lw=6, alpha=al, solid_capstyle="round", zorder=5)
-        ax.scatter([x], [y], [1.95], s=70, color=col, alpha=al, edgecolors=C["bg"], linewidths=0.8, zorder=5)
+            ax.plot(ring[:, 0], ring[:, 1], ring[:, 2], color=C["teal"], lw=2.2, alpha=0.95, zorder=3)
+        al = 1.0 if seen else 0.42                                   # non detecte : translucide (position estimee)
+        ax.add_collection3d(Poly3DCollection([_ellipse(x + 0.45, y + 0.30, 0.62, 0.36)], facecolor="black", edgecolor="none", alpha=cfg_["shadow"] * (1.0 if seen else 0.5), zorder=3.5))
+        polys, cols = _body(x, y, rgb, al)
+        ax.add_collection3d(Poly3DCollection(polys, facecolors=cols, edgecolors=cols, linewidths=0.25, zorder=5))
     if np.isfinite(S["bx"][i]) and S["bx"][i] >= xlim[0]:
         j0 = max(0, i - 8)
-        ax.plot(np.maximum(S["bx"][j0:i + 1], xlim[0]), S["by"][j0:i + 1], np.full(i + 1 - j0, 0.15), color=C["ink"], lw=1.2, alpha=0.5, zorder=6)
-        ax.scatter([S["bx"][i]], [S["by"][i]], [0.3], s=90, color=C["ink"], edgecolors=C["bg"], linewidths=1.2, zorder=7)
+        ax.plot(np.maximum(S["bx"][j0:i + 1], xlim[0]), S["by"][j0:i + 1], np.full(i + 1 - j0, 0.05), color=C["ink"], lw=1.2, alpha=0.40, zorder=6)
+        ax.add_collection3d(Poly3DCollection([_ellipse(S["bx"][i] + 0.10, S["by"][i] + 0.07, BALL_R * 1.15, BALL_R * 0.8)], facecolor="black", edgecolor="none", alpha=cfg_["shadow"] * 1.3, zorder=6.2))
+        jb = max(0, i - 3)
+        dx, dy = S["bx"][i] - S["bx"][jb], S["by"][i] - S["by"][jb]
+        R = _rot((-dy, dx, 0.0), S["bpath"][i] / BALL_R) if np.hypot(dx, dy) > 1e-6 else np.eye(3)
+        polys, cols = _ball(S["bx"][i], S["by"][i], BALL_R, R, cfg_["ball"], "#1c1917")
+        ax.add_collection3d(Poly3DCollection(polys, facecolors=cols, edgecolors=cols, linewidths=0.2, zorder=7))
     obs4 = _observed_of_deepest(S, i)
     readout[0].set_text(T["obs"].format(k=obs4) if obs4 is not None else "")
     readout[1].set_text(T["unc"].format(s=(f"{sd:.1f}".replace(".", ",") if T is TXT["fr"] else f"{sd:.1f}")) if np.isfinite(sd) else "")
@@ -178,7 +316,7 @@ def _observed_of_deepest(S, i):
     return sum(d) if len(d) == 4 else None
 
 
-def render(m, out_base, lang="fr", style="linkedin", k=3, fact_all10=None, gif=True, mp4=True, size=1200, still_at=0.5):
+def render(m, out_base, lang="fr", style="linkedin", k=3, fact_all10=None, gif=True, mp4=True, size=1200, still_at=0.5, look="charte", fmt="square"):
     """Ecrit out_base.png (image fixe), .gif et .mp4 (si ffmpeg est disponible). Retourne la liste des fichiers."""
     S = prepare(m, k)
     T = TXT[lang]
@@ -187,10 +325,15 @@ def render(m, out_base, lang="fr", style="linkedin", k=3, fact_all10=None, gif=T
     if warn:
         print("ATTENTION :", warn)
     dpi = 120
-    fig = plt.figure(figsize=(size / dpi, size / dpi), dpi=dpi)
+    video = (fmt == "video") and not linkedin                  # 16:9 (1920 x 1080) pour la video du concours
+    fig = plt.figure(figsize=((size * 1.6 if video else size) / dpi, (size * 0.9 if video else size) / dpi), dpi=dpi)
     fig.patch.set_facecolor(C["bg"])
-    ax = fig.add_axes([0.0, 0.19, 1.0, 0.58] if linkedin else [0.0, 0.0, 1.0, 1.0], projection="3d")
-    zoom = 1.3 if linkedin else 1.0
+    # matplotlib impose un cadre 3D CARRE et coupe ce qui depasse : on donne donc au cadre un carre aussi large que l'image
+    # (il deborde de la figure en hauteur), sinon le terrain est tronque a gauche et a droite.
+    side = 1.6 / 0.9 if video else 1.0                         # cote du carre, en hauteurs de figure
+    cy = 0.48 if linkedin else (0.60 if video else 0.56)        # centre vertical du terrain dans l'image
+    ax = fig.add_axes([0.0, cy - side / 2, 1.0, side], projection="3d")
+    zoom = 1.15 if linkedin else (1.0 if video else 1.25)
     ax.set_proj_type("persp", focal_length=0.45)
     fp = lambda key, **kw: dict(fontproperties=F[key], **kw) if F else dict(**kw)
     if linkedin:
@@ -209,14 +352,14 @@ def render(m, out_base, lang="fr", style="linkedin", k=3, fact_all10=None, gif=T
     r2 = fig.text(0.07, ry - 0.032 if linkedin else ry - 0.04, "", color=C["rust"], **(dict(fontproperties=F["bold"], fontsize=15) if F else dict(fontsize=14, weight="bold")))
     out = []
     ist = int(round((S["n"] - 1) * still_at))
-    draw(ax, fig, S, ist, T, (r1, r2), zoom=zoom)
+    draw(ax, fig, S, ist, T, (r1, r2), zoom=zoom, look=look)
     fig.savefig(f"{out_base}.png", facecolor=C["bg"])
     out.append(f"{out_base}.png")
     can_mp4 = mp4 and animation.writers.is_available("ffmpeg")
     if mp4 and not can_mp4:
         print("ffmpeg absent : MP4 non produit (GIF seulement). Installer ffmpeg pour le MP4.")
     if can_mp4 or gif:
-        anim = animation.FuncAnimation(fig, lambda i: draw(ax, fig, S, i, T, (r1, r2), zoom=zoom), frames=S["n"], interval=1000 / S["fps"])
+        anim = animation.FuncAnimation(fig, lambda i: draw(ax, fig, S, i, T, (r1, r2), zoom=zoom, look=look), frames=S["n"], interval=1000 / S["fps"])
         if can_mp4:
             anim.save(f"{out_base}.mp4", writer=animation.FFMpegWriter(fps=S["fps"], codec="libx264", extra_args=["-pix_fmt", "yuv420p"]), dpi=dpi, savefig_kwargs=dict(facecolor=C["bg"]))
             out.append(f"{out_base}.mp4")
@@ -232,6 +375,8 @@ def main(argv=None):
     ap.add_argument("--out", default="out/moment3d", help="prefixe des fichiers produits")
     ap.add_argument("--lang", choices=["fr", "en"], default="fr")
     ap.add_argument("--style", choices=["linkedin", "plain"], default="linkedin")
+    ap.add_argument("--look", choices=["charte", "realiste"], default="charte", help="aspect de la scene : pelouse creme (charte) ou verte (realiste)")
+    ap.add_argument("--format", choices=["square", "video"], default="square", help="video = 1920 x 1080 (style plain seulement)")
     ap.add_argument("--moment-json", help="moment deja extrait (out/moment.json) ; sinon il est choisi dans les donnees")
     ap.add_argument("--match", type=int)
     ap.add_argument("--team", type=int)
@@ -256,7 +401,7 @@ def main(argv=None):
             if sel is None:
                 raise SystemExit("aucun moment ne repond aux criteres ; precisez --match --team --frame")
         m = moment.extract(*sel)
-    for f in render(m, a.out, a.lang, a.style, fact_all10=a.fact_all10, gif=not a.no_gif, mp4=not a.no_mp4):
+    for f in render(m, a.out, a.lang, a.style, fact_all10=a.fact_all10, gif=not a.no_gif, mp4=not a.no_mp4, look=a.look, fmt=a.format):
         print("ecrit :", f)
 
 

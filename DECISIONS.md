@@ -24,3 +24,8 @@ Chaque choix de méthode, avec sa raison. **Une décision modifiée n'est jamais
 | 19 nov. | Test T2 après correction : base identique au tableau (ensemble +1,02, libre −0,90, pressé +1,43, libre − pressé −2,34). Verdict **ROBUSTE** selon la règle écrite d'avance : aucun signe ne change dans les 9 variantes, l'intervalle de libre − pressé exclut 0 dans toutes (de −1,75 à −3,06 ; −1,75 [−2,61 ; −0,88] pour un bloc de 3 s, −3,06 [−4,36 ; −1,90] pour 12 s), et le retrait d'un match ne change aucun signe (de −2,60 à −2,16). Le porteur libre seul a un intervalle qui contient 0 dans 4 variantes sur 9 (âge du bloc 3, 8 et 12 s ; contrôles minimaux). Le bilan de l'ensemble croît avec l'âge du bloc (+0,78 à 3 s, +1,85 à 12 s). | La différence entre porteur libre et pressé est la partie solide ; le coût du porteur libre pris seul est une tendance. « Robuste » vaut pour ces hypothèses, pas pour la définition de libre/pressé (fixée en amont), ni pour la sélection par la caméra (C7), ni pour la défense organisée seule (C6). | `highline/sensitivity.py`, `out/rapport.txt` |
 
 *Format d'une nouvelle entrée :* `date · décision · raison · script ou document · (remplace l'entrée du …)`.
+
+## 19 novembre 2026 : CI, environnement propre, rendu 3D
+- CI GitHub Actions (Ubuntu, macOS, Windows ; Python 3.11) : vert.
+- Test en environnement vierge (Python 3.11, macOS) : 49 tests en 5,5 s ; run rapide en 90 s, environ 1,1 Go de mémoire, 406 Mo de données. requires-python aligné sur 3.11 (les versions figées l'exigent).
+- Rendu 3D : volumes, ombres, ballon, aspect réaliste et format vidéo 16:9. Silhouettes agrandies de 25 
