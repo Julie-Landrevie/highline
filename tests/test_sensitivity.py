@@ -18,6 +18,25 @@ def _synth(seed=0, n_matches=16, per=900):
     return pd.concat(rows, ignore_index=True)
 
 
+def _avec_pression_inconnue(seed=3):
+    d = _synth(seed)
+    rng = np.random.default_rng(seed)
+    d.loc[rng.random(len(d)) < 0.1, "free"] = np.nan          # moments sans niveau de pression : ni libre ni presse
+    d["ball_x"] = rng.uniform(36, 69, len(d))
+    d["score_state"], d["min_bin"], d["half"] = "egalite", "0-30", (d.match_id % 2).values
+    return d
+
+
+def test_les_nombres_sont_ceux_du_tableau_de_decision():
+    """La base de la sensibilite doit etre exactement la ligne « porteur : libre / presse / ensemble » du tableau de decision."""
+    from highline import decision as dec
+    d = _avec_pression_inconnue()
+    cells = {c["key"]: c for c in dec.cells(d, nb=2, min_n=400)}
+    r = S.evaluate(d, nb=5)
+    for name, key in (("ensemble", ("tous",) * 4), ("libre", ("libre", "tous", "tous", "tous")), ("presse", ("presse", "tous", "tous", "tous"))):
+        assert abs(r[name][0] - dec.summarize(cells[key])["net"]) < 1e-9, name
+
+
 def test_retrouve_les_signes_connus():
     r = S.evaluate(_synth(), nb=100)
     assert r["libre"][0] < 0 < r["presse"][0] and r["libre - presse"][0] < 0

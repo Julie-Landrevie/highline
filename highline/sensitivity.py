@@ -37,8 +37,7 @@ def evaluate(d, ctrl=None, nb=NB_DEFAULT, seed=SEED):
     rng = np.random.default_rng(seed)
     A = np.column_stack([np.ones(len(d)), d[["f_res"] + ctrl].values])
     Y = np.column_stack([d.opp15.values.astype(float), d.own15.values.astype(float)])
-    free = (d.free == 1).values
-    masks = {"ensemble": np.ones(len(d), bool), "libre": free, "presse": ~free}
+    masks = {"ensemble": np.ones(len(d), bool), "libre": (d.free == 1).values, "presse": (d.free == 0).values}     # pression inconnue (NaN) : ni libre ni presse, comme dans le tableau de decision
     ids = d.match_id.values
     idx_by = {m: np.where(ids == m)[0] for m in np.unique(ids)}
 
@@ -69,9 +68,8 @@ def leave_one_match_out(d, ctrl=None):
 def _diff_point(d, ctrl):
     A = np.column_stack([np.ones(len(d)), d[["f_res"] + ctrl].values])
     Y = np.column_stack([d.opp15.values.astype(float), d.own15.values.astype(float)])
-    f = (d.free == 1).values
     n = lambda m: _net(100 * np.linalg.lstsq(A[m], Y[m], rcond=None)[0][1])
-    return n(f) - n(~f)
+    return n((d.free == 1).values) - n((d.free == 0).values)
 
 
 def verdict(base, variants, lomo_flips=0):
