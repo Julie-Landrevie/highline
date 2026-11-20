@@ -10,7 +10,7 @@ Les positions sont celles du fournisseur (SkillCorner, A-League 2024/25) ; aucun
 Styles : `linkedin` = carre 1200 x 1200, fond creme, titre, signature (polices DM Serif Display et Lato telechargees si possible, licence OFL ; sinon polices par defaut, avec un avertissement) ;
 `plain` = meme scene sans titre ni signature (pour la video du concours).
 
-Aspect (`--look`) : `charte` (defaut) = pelouse aux teintes cremes de la charte ; `realiste` = pelouse verte, lignes blanches. Les couleurs de lecture (vert d'eau, gris, rouille) ne changent pas.
+Aspect (`--look`) : `charte` (defaut) = pelouse aux teintes cremes de la charte ; `realiste` = pelouse verte, lignes blanches. Les couleurs de lecture de la charte (vert d'eau, gris, rouille) sont gardees en `charte` ; en `realiste`, les defenseurs sont bleus et l'anneau bleu clair, car le vert d'eau se confond avec la pelouse.
 Les joueurs sont des volumes (jambes, buste, tete) avec ombre au sol ; le ballon est une sphere a pentagones qui roule avec son deplacement (agrandi x2,5) ; un joueur non detecte est translucide. Les cages sont dessinees a la taille reglementaire (7,32 m x 2,44 m).
 La hauteur des joueurs est un gabarit unique (1,8 m) : le tracking ne donne que (x, y)."""
 import argparse
@@ -123,8 +123,8 @@ def prepare(m, k=3):
 
 
 LOOKS = {
-    "charte": dict(rust="#cc4a12", grass=("#efe8d8", "#e9e0cc"), surround="#e4dccd", line="#c9c0b1", goal="#57534e", net="#8a8580", att="#8a8580", dfd="#0d8f84", ball="#fdfcf8", shadow=0.20),
-    "realiste": dict(rust="#f2682a", grass=("#5c8a53", "#548049"), surround="#476d40", line="#f3f0e6", goal="#f3f0e6", net="#e6e2d6", att="#d9d5cc", dfd="#12a698", ball="#ffffff", shadow=0.30),
+    "charte": dict(rust="#cc4a12", grass=("#efe8d8", "#e9e0cc"), surround="#e4dccd", line="#c9c0b1", goal="#57534e", net="#8a8580", att="#8a8580", dfd="#0d8f84", ring="#0d8f84", ball="#fdfcf8", shadow=0.20),
+    "realiste": dict(rust="#f2682a", grass=("#5c8a53", "#548049"), surround="#476d40", line="#f3f0e6", goal="#f3f0e6", net="#e6e2d6", att="#e6e2d8", dfd="#2f6fdc", ring="#9fd0ff", ball="#ffffff", shadow=0.30),
 }
 _LIGHT = np.array([-0.45, -0.35, 0.82])
 _LIGHT = _LIGHT / np.linalg.norm(_LIGHT)
@@ -288,11 +288,11 @@ def draw(ax, fig, S, i, T, readout, xlim=(None, None), azim=(165.0, 195.0), elev
         rgb = to_rgb(cfg_["att"] if p["side"] == "a" else cfg_["dfd"])
         seen = bool(p["det"][i])
         deep = bool(p["deep4"][i])
-        if deep and not seen and np.isfinite(p["r"][i]):
-            ax.add_collection3d(Poly3DCollection([_disc(x, y, max(p["r"][i], 0.4))], facecolor=cfg_["rust"], edgecolor=cfg_["rust"], alpha=0.30, linewidth=1.4, linestyle="--", zorder=3))
+        if (deep or p["gk"]) and not seen and np.isfinite(p["r"][i]):          # le gardien non detecte a aussi son disque d'incertitude (plus leger)
+            ax.add_collection3d(Poly3DCollection([_disc(x, y, max(p["r"][i], 0.4))], facecolor=cfg_["rust"], edgecolor=cfg_["rust"], alpha=0.30 if deep else 0.16, linewidth=1.4, linestyle="--", zorder=3))
         if deep and seen:
             ring = _disc(x, y, 1.5, z=0.04)
-            ax.plot(ring[:, 0], ring[:, 1], ring[:, 2], color=C["teal"], lw=2.2, alpha=0.95, zorder=3)
+            ax.plot(ring[:, 0], ring[:, 1], ring[:, 2], color=cfg_["ring"], lw=2.4, alpha=0.95, zorder=3)
         al = 1.0 if seen else 0.42                                   # non detecte : translucide (position estimee)
         ax.add_collection3d(Poly3DCollection([_ellipse(x + 0.45, y + 0.30, 0.62, 0.36)], facecolor="black", edgecolor="none", alpha=cfg_["shadow"] * (1.0 if seen else 0.5), zorder=3.5))
         polys, cols = _body(x, y, rgb, al)
